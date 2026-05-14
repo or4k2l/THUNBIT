@@ -749,6 +749,13 @@ class StabilizedDemandDetectorV44(StabilizedDemandDetectorV43):
     state-machine calibration motivated by exploratory checks on sampled
     real M5 retail item/store daily demand series.
 
+    Default calibration deltas vs V4.3:
+
+    * ``drift_entry`` = 0.42 (was 0.38)
+    * ``drift_confirm_days`` = 3 (was 2)
+    * ``shift_entry`` = 0.68 (was 0.65)
+    * ``shift_exit`` = 0.44 (unchanged from V4.3; restated for clarity)
+
     This M5 work is an external plausibility check only (not a labeled
     benchmark).  THUNBIT remains a research prototype; false-alert calibration
     is still an open problem and this configuration is not production-ready.

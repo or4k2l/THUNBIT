@@ -164,6 +164,8 @@ baseline history is still short.
 
 ---
 
+## 7a. V4.4 calibration refinement
+
 **V4.4** keeps V4.3's normalized-score setup and applies a stricter
 state-machine calibration (V4.4b) selected from exploratory checks on sampled
 real M5 retail item/store daily series.  This M5 work is a plausibility check,

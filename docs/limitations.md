@@ -56,7 +56,7 @@ exhibits:
 Exploratory checks were run on sampled M5 retail item/store series to guide
 follow-up calibration, but there is still **no formal real-data benchmark or
 validation pipeline** in this repository.  Any observed performance on
-simulated scenarios may not generalise.
+simulated scenarios may not generalize.
 
 ---
 
