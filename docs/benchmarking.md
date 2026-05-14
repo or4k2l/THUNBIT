@@ -170,7 +170,7 @@ operating point.
 
 ---
 
-### V4.3 – current best experimental operating point
+### V4.3 – lower-quantile + warmup improvement step
 
 V4.3 builds on V4.2's score-normalization concept and recovers much of the
 detection responsiveness that V4.2 sacrificed.  Key changes from V4.2:
@@ -196,13 +196,35 @@ detection responsiveness that V4.2 sacrificed.  Key changes from V4.2:
 * V4.3 recovered a large portion of the detection responsiveness lost in
   V4.2: break detection delays on gradual-drift, cycle-break, and
   intermittent scenarios are substantially shorter than V4.2's.
-* V4.3 is therefore the **current best compromise** between stable-series
-  false-alert control and break detection speed.
+* V4.3 was the first strong compromise between stable-series false-alert
+  control and break detection speed.
 
 **V4.3 is not production-ready.**  Stable-series false alerts remain an open
 calibration problem.  Score normalization is now confirmed as the right
 direction, but the precise quantile, window length, and threshold settings
 have not been validated beyond these synthetic experiments.
+
+---
+
+### V4.4 (V4.4b calibration) – current recommended experimental operating point
+
+V4.4 keeps V4.3's normalized-score structure (25th-percentile baseline,
+28-day baseline window, warmup suppression, cooldown) and changes only the
+state-machine calibration:
+
+* `drift_entry`: `0.38 → 0.42`
+* `drift_confirm_days`: `2 → 3`
+* `shift_entry`: `0.65 → 0.68`
+* `shift_confirm_days`: `1 → 1` (unchanged)
+
+The V4.4b calibration was selected from exploratory follow-up checks on sampled
+real M5 retail item/store daily demand series.  In that exploratory setting, it
+reduced alert burden relative to V4.3 while retaining a similar qualitative
+plausibility profile.
+
+This is an external plausibility check only.  It is **not** a formal labeled
+benchmark and does **not** establish production readiness or real-world
+validation.  The false-alert calibration problem remains open.
 
 ---
 
@@ -213,8 +235,10 @@ The core tension in this design is:
 > More suppression → fewer stable-series false clusters → more delay on real breaks.
 
 V4.2 showed that moving from state-machine filtering to score normalization
-is the right approach.  V4.3 demonstrates that the lower-quantile baseline
-provides a better operating point than the median baseline, but no
+is the right approach.  V4.3 demonstrated that the lower-quantile baseline
+provides a better operating point than the median baseline, and V4.4 (V4.4b)
+adds stricter state-machine calibration motivated by exploratory M5 plausibility
+checks.  Still, no
 configuration tested so far achieves both low stable-series false alerts
 and fast break detection simultaneously.
 

@@ -12,7 +12,7 @@ The most significant open problem.
 
 Every synthetic stable demand series tested (across all seeds and all detector
 variants) triggered at least one alert.  The stabilized variants (V4, V4.1,
-V4.2, V4.3) reduce the **number** of false-alert clusters and the **fraction**
+V4.2, V4.3, V4.4) reduce the **number** of false-alert clusters and the **fraction**
 of time spent in a non-STABLE state, but they do not eliminate false alerts
 entirely.
 
@@ -27,11 +27,11 @@ days dropped from ~32% (V4.1) to ~3%.  This confirmed that **score
 calibration – not state-transition logic – is the central design issue**.
 However, V4.2 also over-suppressed genuine breaks.
 
-**V4.3 is the current best tradeoff**: it uses a lower-quantile rolling
-baseline and warmup suppression to partially recover break detection speed
-while keeping stable-series alert burden materially below V4.1 levels.
-V4.3 still fires false alerts on stable series; the improvement is meaningful
-but the problem remains open.
+**V4.4 (V4.4b calibration) is the current recommended experimental tradeoff**:
+it keeps V4.3's lower-quantile rolling baseline and warmup suppression, but
+uses stricter state-entry calibration motivated by exploratory sampled-M5
+checks.  V4.4 still fires false alerts on stable series; the improvement is
+meaningful but the problem remains open.
 
 The remaining challenge is that the raw confidence score carries a systematic
 positive bias on stationary series because the KS statistic is sensitive to
@@ -53,8 +53,10 @@ exhibits:
 * Autocorrelation structures that differ from the simulated scenarios
 * Sparse or intermittent demand with structural zeros
 
-The detector has **not** been tested on real data.  Any observed performance
-on simulated scenarios may not generalise.
+Exploratory checks were run on sampled M5 retail item/store series to guide
+follow-up calibration, but there is still **no formal real-data benchmark or
+validation pipeline** in this repository.  Any observed performance on
+simulated scenarios may not generalise.
 
 ---
 

@@ -6,7 +6,7 @@ They verify that:
   - detectors return output with the expected schema
   - a clear mean shift is detected within a reasonable number of days
   - stable series do not produce only SHIFT states
-  - V4.3 state machine respects hysteresis (no immediate flip-flop)
+  - V4.3 / V4.4 state machine respects hysteresis (no immediate flip-flop)
 """
 
 import numpy as np
@@ -18,6 +18,7 @@ from thunbit import (
     StabilizedDemandDetectorV41,
     StabilizedDemandDetectorV42,
     StabilizedDemandDetectorV43,
+    StabilizedDemandDetectorV44,
 )
 
 RNG = np.random.default_rng(0)
@@ -88,6 +89,14 @@ def test_stabilized_v43_output_schema():
     assert EXPECTED_COLS_V42.issubset(set(result.columns))
 
 
+def test_stabilized_v44_output_schema():
+    det = StabilizedDemandDetectorV44()
+    result = det.detect_rolling_stabilized(STABLE)
+    assert len(result) > 0
+    # V4.4 keeps V4.3/V4.2 normalized output columns
+    assert EXPECTED_COLS_V42.issubset(set(result.columns))
+
+
 # ---------------------------------------------------------------------------
 # Valid state values
 # ---------------------------------------------------------------------------
@@ -102,6 +111,13 @@ def test_base_valid_states(series):
 @pytest.mark.parametrize("series", [STABLE, SHIFTED])
 def test_v43_valid_states(series):
     det = StabilizedDemandDetectorV43()
+    result = det.detect_rolling_stabilized(series)
+    assert set(result["state"]).issubset({"STABLE", "DRIFT", "SHIFT"})
+
+
+@pytest.mark.parametrize("series", [STABLE, SHIFTED])
+def test_v44_valid_states(series):
+    det = StabilizedDemandDetectorV44()
     result = det.detect_rolling_stabilized(series)
     assert set(result["state"]).issubset({"STABLE", "DRIFT", "SHIFT"})
 
@@ -135,6 +151,16 @@ def test_v43_detects_mean_shift():
     det = StabilizedDemandDetectorV43()
     result = det.detect_rolling_stabilized(SHIFTED)
     post_break = result[result["t"] >= 240]
+    assert post_break["state"].isin(["DRIFT", "SHIFT"]).any(), (
+        "Expected DRIFT or SHIFT on post-shift portion of series"
+    )
+
+
+def test_v44_detects_mean_shift():
+    """V4.4 detector should raise an alert after a clear mean shift."""
+    det = StabilizedDemandDetectorV44()
+    result = det.detect_rolling_stabilized(SHIFTED)
+    post_break = result[result["t"] >= 245]
     assert post_break["state"].isin(["DRIFT", "SHIFT"]).any(), (
         "Expected DRIFT or SHIFT on post-shift portion of series"
     )
@@ -188,6 +214,20 @@ def test_v43_normalized_confidence_in_range():
     assert result["normalized_confidence"].between(0.0, 1.0).all()
 
 
+def test_v44_baseline_confidence_nonneg():
+    """V4.4 baseline_confidence should always be non-negative."""
+    det = StabilizedDemandDetectorV44()
+    result = det.detect_rolling_stabilized(STABLE)
+    assert (result["baseline_confidence"] >= 0.0).all()
+
+
+def test_v44_normalized_confidence_in_range():
+    """V4.4 normalized_confidence should be clipped to [0, 1]."""
+    det = StabilizedDemandDetectorV44()
+    result = det.detect_rolling_stabilized(STABLE)
+    assert result["normalized_confidence"].between(0.0, 1.0).all()
+
+
 def test_v43_warmup_suppression():
     """V4.3 warmup suppression should prevent any alert in the first warmup_days rows."""
     det = StabilizedDemandDetectorV43(warmup_days=30)
@@ -197,6 +237,26 @@ def test_v43_warmup_suppression():
     assert (warmup_rows["state"] == "STABLE").all(), (
         "V4.3 should suppress new alert entries during warmup period"
     )
+
+
+def test_v44_warmup_suppression():
+    """V4.4 warmup suppression should prevent any alert in the first warmup_days rows."""
+    det = StabilizedDemandDetectorV44(warmup_days=30)
+    result = det.detect_rolling_stabilized(SHIFTED)
+    warmup_rows = result.iloc[:30]
+    assert (warmup_rows["state"] == "STABLE").all(), (
+        "V4.4 should suppress new alert entries during warmup period"
+    )
+
+
+def test_v44_calibration_defaults():
+    det = StabilizedDemandDetectorV44()
+    assert det.drift_entry == 0.42
+    assert det.drift_exit == 0.22
+    assert det.shift_entry == 0.68
+    assert det.shift_exit == 0.44
+    assert det.drift_confirm_days == 3
+    assert det.shift_confirm_days == 1
 
 
 # ---------------------------------------------------------------------------

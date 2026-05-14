@@ -3,17 +3,19 @@ thunbit.stabilized
 ~~~~~~~~~~~~~~~~~~
 Stabilized demand-state detector variants.
 
-This module provides four progressively refined detectors that add a state
+This module provides five progressively refined detectors that add a state
 machine on top of the raw confidence score produced by ``DemandStateDetector``:
 
 * ``StabilizedDemandDetector``   – V4: hysteresis + smoothing + confirmation
 * ``StabilizedDemandDetectorV41`` – V4.1: adds cooldown, relaxed thresholds
 * ``StabilizedDemandDetectorV42`` – V4.2: baseline-normalized scoring; major
   reduction in stable-series false alerts, but over-damped on real breaks
-* ``StabilizedDemandDetectorV43`` – V4.3: current best experimental operating
-  point; lower-quantile baseline + warmup suppression + tuned thresholds
+* ``StabilizedDemandDetectorV43`` – V4.3: first lower-quantile + warmup variant
+* ``StabilizedDemandDetectorV44`` – V4.4 (V4.4b calibration): recommended
+  experimental operating point; stricter state-machine calibration on V4.3's
+  normalized-score design
 
-All four are **experimental**.  Stable-series false-alert rates remain an
+All variants are **experimental**.  Stable-series false-alert rates remain an
 active calibration problem.  The key unresolved design issue is score
 calibration, not just state-transition logic.  See ``docs/benchmarking.md``
 and ``docs/limitations.md`` for observed trade-offs.
@@ -359,7 +361,7 @@ class StabilizedDemandDetectorV42(StabilizedDemandDetectorV41):
       to 0.5.
 
     V4.2 is kept here as a historical reference showing that score
-    normalization is the right design direction.  **V4.3 is the recommended
+    normalization is the right design direction.  **V4.4 is the recommended
     experimental operating point.**
 
     Parameters
@@ -530,7 +532,7 @@ class StabilizedDemandDetectorV42(StabilizedDemandDetectorV41):
 
 
 class StabilizedDemandDetectorV43(StabilizedDemandDetectorV42):
-    """V4.3 detector – current best experimental operating point.
+    """V4.3 detector – historical lower-quantile + warmup reference.
 
     V4.3 builds on V4.2's baseline-normalization concept and recovers much of
     the detection responsiveness that V4.2 sacrificed.  The two key changes:
@@ -562,8 +564,8 @@ class StabilizedDemandDetectorV43(StabilizedDemandDetectorV42):
       higher than the no-state-machine baseline.
     * All parameters were tuned on simulated data; behaviour on real SKU data
       is unknown.
-    * V4.3 is the current best experimental tradeoff, not a production-ready
-      configuration.
+    * V4.3 remains available for historical comparison and backward
+      compatibility, but is no longer the recommended experimental default.
 
     Parameters
     ----------
@@ -737,3 +739,55 @@ class StabilizedDemandDetectorV43(StabilizedDemandDetectorV42):
             output_row += 1
 
         return pd.DataFrame(rows)
+
+
+class StabilizedDemandDetectorV44(StabilizedDemandDetectorV43):
+    """V4.4 detector (V4.4b calibration) – recommended experimental variant.
+
+    V4.4 keeps V4.3's normalized-score design (lower-quantile baseline,
+    warmup suppression, and longer cooldown) and applies a stricter
+    state-machine calibration motivated by exploratory checks on sampled
+    real M5 retail item/store daily demand series.
+
+    This M5 work is an external plausibility check only (not a labeled
+    benchmark).  THUNBIT remains a research prototype; false-alert calibration
+    is still an open problem and this configuration is not production-ready.
+    """
+
+    def __init__(
+        self,
+        window_long: int = 90,
+        window_short: int = 21,
+        drift_thresh: float = 0.28,
+        shift_thresh: float = 0.55,
+        smoothing_window: int = 2,
+        baseline_window: int = 28,
+        baseline_quantile: float = 0.25,
+        excess_scale: float = 2.0,
+        drift_entry: float = 0.42,
+        drift_exit: float = 0.22,
+        shift_entry: float = 0.68,
+        shift_exit: float = 0.44,
+        drift_confirm_days: int = 3,
+        shift_confirm_days: int = 1,
+        cooldown_days: int = 7,
+        warmup_days: int = 28,
+    ) -> None:
+        super().__init__(
+            window_long=window_long,
+            window_short=window_short,
+            drift_thresh=drift_thresh,
+            shift_thresh=shift_thresh,
+            smoothing_window=smoothing_window,
+            baseline_window=baseline_window,
+            baseline_quantile=baseline_quantile,
+            excess_scale=excess_scale,
+            drift_entry=drift_entry,
+            drift_exit=drift_exit,
+            shift_entry=shift_entry,
+            shift_exit=shift_exit,
+            drift_confirm_days=drift_confirm_days,
+            shift_confirm_days=shift_confirm_days,
+            cooldown_days=cooldown_days,
+            warmup_days=warmup_days,
+        )

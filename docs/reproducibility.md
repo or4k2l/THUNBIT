@@ -38,7 +38,7 @@ dependencies should work.
 python examples/basic_usage.py
 ```
 
-This runs `DemandStateDetector` and `StabilizedDemandDetectorV43` on two
+This runs `DemandStateDetector` and `StabilizedDemandDetectorV44` on two
 short synthetic demand series and prints a summary.  No external data or
 environment setup required.
 
@@ -47,7 +47,7 @@ Expected output:
 ```
 Baseline DemandStateDetector on stable series
 ...
-V4.3 detector on mean-shift series (shift at day 200)
+V4.4 detector on mean-shift series (shift at day 200)
 ...
 Done.  See docs/ for methodology and benchmarking details.
 ```
@@ -67,8 +67,8 @@ The test suite covers:
 - mean-shift detection
 - variance-spike detection
 - hysteresis and state-machine behaviour
-- baseline/normalized confidence ranges for V4.2 and V4.3
-- warmup suppression for V4.3
+- baseline/normalized confidence ranges for V4.2, V4.3, and V4.4
+- warmup suppression for V4.3 and V4.4
 
 All tests use synthetic data generated with `numpy.random.default_rng(42)`.
 No external data or network access is required.
@@ -121,14 +121,14 @@ notebooks/03_cost_simulation.ipynb       – illustrative cost framing
 | Item | Why only approximate |
 |------|---------------------|
 | Reference benchmark tables in `docs/benchmarking.md` | Those used 10 seeds; notebooks use 5 by default.  Numbers will be close but not identical.  Change `N_SEEDS = 10` in notebook 02 to reproduce the 10-seed reference more closely. |
-| V4.3 parameter calibration narrative | Parameters were tuned manually in Google Colab during development.  The Colab sessions are no longer available.  Repo defaults are the best available transcription of those sessions. |
+| V4.3/V4.4 parameter calibration narrative | Parameters were tuned manually in Google Colab during development (synthetic + exploratory sampled-M5 follow-up checks). The Colab sessions are no longer available. Repo defaults are the best available transcription of those sessions. |
 
 ### Not reproducible from this repo
 
 | Item | Why |
 |------|-----|
 | Original Colab exploration notebooks | Those were interactive development sessions and were not systematically saved or committed.  The notebooks in `notebooks/` are cleaned-up reproductions based on the current package and documented benchmark logic. |
-| Results on real SKU demand data | No real data was collected or used.  All results are synthetic. |
+| Formal results on real SKU demand data | No real dataset is bundled in this repo and no formal labeled real-data benchmark pipeline is implemented. |
 | Automated parameter search | No automated tuning was implemented; all thresholds were set manually. |
 
 ---
@@ -142,6 +142,7 @@ included:
 - State-machine experiments (V4, V4.1)
 - Score normalisation experiments (V4.2 median baseline)
 - Lower-quantile baseline experiments (V4.3)
+- Follow-up stricter state calibration experiments (V4.4b)
 - Manual parameter sweeps and qualitative assessment
 
 The Colab notebooks were not systematically version-controlled and are no
@@ -165,11 +166,12 @@ from the Colab work are expected and are noted where relevant.
 
 ## 7. Simulation basis and exploratory status
 
-All benchmark results — including those in `docs/benchmarking.md` and
-reproduced in the notebooks — are based entirely on **synthetic demand
-simulations**.
+All quantitative benchmark results — including those in
+`docs/benchmarking.md` and reproduced in the notebooks — are based on
+**synthetic demand simulations**.
 
-- No real SKU demand data was used at any stage.
+- Exploratory sampled-M5 checks were used only as a follow-up plausibility
+  input for the V4.4b calibration; they are not a labeled benchmark.
 - Simulation parameters (mean, variance, break magnitude, series length) were
   chosen to be plausible but not calibrated to any real business dataset.
 - All findings are exploratory.  They motivated the design choices described
@@ -187,7 +189,7 @@ promotions, intermittency, and other structure not captured in the simulations.
   across any small seed set will show seed-to-seed variation.
 - Detection delay numbers depend on the `min_run=3` sustained-alert threshold
   used to define "detected".  Different definitions produce different numbers.
-- V4.3 parameters were set manually.  No automated cross-validation or
+- V4.3/V4.4 parameters were set manually.  No automated cross-validation or
   parameter optimisation was done.  The reported parameter values may not be
   globally optimal even for the simulated scenarios used.
 

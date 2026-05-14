@@ -111,7 +111,7 @@ otherwise            →  STABLE
 This is the simplest rule and the comparison baseline.  It is deliberately
 not smoothed or hysteresised, which makes it noisy but fast to respond.
 
-### Stabilized (V4, V4.1, V4.2, V4.3)
+### Stabilized (V4, V4.1, V4.2, V4.3, V4.4)
 
 The stabilized variants layer a state machine on top of the confidence score:
 
@@ -126,18 +126,18 @@ The stabilized variants layer a state machine on top of the confidence score:
    re-escalation to DRIFT is suppressed for a fixed number of days.  This
    reduces fragmented repeated alert clusters.
 5. **Baseline normalization** (V4.2+) – instead of operating on the raw
-   confidence score, V4.2 and V4.3 subtract a rolling baseline before
+   confidence score, V4.2+ subtract a rolling baseline before
    applying the state machine.  This converts the absolute score into a
    *relative-to-own-noise* signal and is the key innovation for reducing
    false-alert burden on stable series.
-6. **Warmup suppression** (V4.3) – state changes from STABLE are suppressed
+6. **Warmup suppression** (V4.3+) – state changes from STABLE are suppressed
    for an initial warmup period while the baseline history fills up.
 
 ---
 
-## 7. Baseline normalization (V4.2 / V4.3)
+## 7. Baseline normalization (V4.2+)
 
-The core idea of V4.2 and V4.3 is that a stable series with high raw
+The core idea of V4.2+ is that a stable series with high raw
 confidence simply has a *noisy but flat* confidence signal, whereas a series
 undergoing a genuine break has confidence that rises *above its own recent
 level*.
@@ -164,24 +164,29 @@ baseline history is still short.
 
 ---
 
+**V4.4** keeps V4.3's normalized-score setup and applies a stricter
+state-machine calibration (V4.4b) selected from exploratory checks on sampled
+real M5 retail item/store daily series.  This M5 work is a plausibility check,
+not a labeled benchmark or production validation.
+
 ## 8. Parameter definitions
 
-| Parameter             | Default (V4.3) | Description                                          |
+| Parameter             | Default (V4.4) | Description                                          |
 |-----------------------|:--------------:|------------------------------------------------------|
 | `window_long`         | 90             | Length of the reference window (days)                |
 | `window_short`        | 21             | Length of the current window (days)                  |
 | `smoothing_window`    | 2              | Confidence averaging window                          |
-| `baseline_window`     | 28             | Window for rolling baseline statistic (V4.2/V4.3)   |
-| `baseline_quantile`   | 0.25           | Quantile used for baseline (V4.3)                    |
+| `baseline_window`     | 28             | Window for rolling baseline statistic (V4.2+)        |
+| `baseline_quantile`   | 0.25           | Quantile used for baseline (V4.3+)                   |
 | `excess_scale`        | 2.0            | Amplification factor applied to excess confidence    |
-| `drift_entry`         | 0.38           | Normalized confidence required to enter DRIFT        |
+| `drift_entry`         | 0.42           | Normalized confidence required to enter DRIFT        |
 | `drift_exit`          | 0.22           | Normalized confidence below which DRIFT exits        |
-| `shift_entry`         | 0.65           | Normalized confidence required to enter SHIFT        |
+| `shift_entry`         | 0.68           | Normalized confidence required to enter SHIFT        |
 | `shift_exit`          | 0.44           | Normalized confidence below which SHIFT exits        |
-| `drift_confirm_days`  | 2              | Consecutive days above drift_entry to enter DRIFT    |
+| `drift_confirm_days`  | 3              | Consecutive days above drift_entry to enter DRIFT    |
 | `shift_confirm_days`  | 1              | Consecutive days above shift_entry to enter SHIFT    |
 | `cooldown_days`       | 7              | Suppression days after returning to STABLE           |
-| `warmup_days`         | 28             | Initial rows with alert-entry suppressed (V4.3)      |
+| `warmup_days`         | 28             | Initial rows with alert-entry suppressed (V4.3+)     |
 
 ---
 
@@ -191,4 +196,4 @@ baseline history is still short.
 * It does not produce demand forecasts.
 * It does not output a probability distribution over states.
 * It does not adapt its parameters online.
-* It has not been benchmarked on real SKU data.
+* It has not been formally benchmarked on labeled real SKU data.
