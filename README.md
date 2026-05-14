@@ -30,8 +30,9 @@ score and maps it to an operational state signal:
 
 - A **forecasting model**.  It produces no demand forecasts, safety-stock
   levels, or reorder-point recommendations.
-- A **validated production system**.  All benchmark results are from synthetic
-  data; real-SKU behaviour is unknown.
+- A **validated production system**.  Quantitative benchmarks are from synthetic
+  data; public-dataset plausibility checks (Favorita, Rossmann) are exploratory
+  and non-labeled.  Real-world performance is unknown.
 - A **solved problem**.  False alerts on stable series are a known open
   limitation (see [docs/limitations.md](docs/limitations.md)).
 
@@ -171,13 +172,22 @@ superior detector:
 V4.3 remains the more responsive historical comparison point and should be
 preferred when faster synthetic break detection is the priority.
 
-The V4.4b choice was motivated by exploratory checks on sampled real M5 retail
-item/store daily demand series, where alert burden dropped relative to V4.3
-with a similar qualitative plausibility profile.  Exploratory M5 plausibility
-checks support the preference for a quieter operating point but do not override
-the synthetic tradeoff story.  This is an external plausibility check only,
-**not** a labeled benchmark or production validation.
-False-alert calibration remains an active open problem.
+The V4.4b calibration choice is further supported by exploratory public-dataset
+plausibility audits across two real-world retail datasets:
+
+* **Favorita** (Ecuador grocery, daily `store_nbr × family` panel) — currently
+  the strongest public external plausibility check run so far.  V4.4 again
+  appeared as a quieter / more conservative operating point than V4.3.  Alerts
+  were frequently adjacent to transaction-shock windows and often near mapped
+  holiday periods.
+* **Rossmann** (German drug-store chain, daily) — a secondary corroborating
+  retail plausibility check.  Alerts clustered near store closure and reopening
+  transitions.  V4.4 was again quieter than V4.3.
+
+These are exploratory event-linked plausibility audits, **not** gold-labeled
+real-world validation.  Synthetic benchmarks remain the quantitative core and
+the primary controlled basis for comparing V4.3 and V4.4.  False-alert
+calibration remains an active open problem.
 
 See [docs/benchmarking.md](docs/benchmarking.md) for the full iteration history
 and quantitative tables.
@@ -196,7 +206,7 @@ and quantitative tables.
 | Benchmark and walkthrough notebooks | ✅ committed (`notebooks/`) |
 | Reproducibility documentation | ✅ see `docs/reproducibility.md` |
 | Stable-series false-alert calibration | ❌ open problem (improved but unsolved) |
-| Real-data checks | ⚠️ exploratory sampled-M5 plausibility checks only (no formal validation) |
+| Public plausibility audits | ⚠️ exploratory — Favorita (strongest external check) + Rossmann (secondary corroboration); no formal validation |
 | Automated parameter tuning | ❌ not started |
 
 ---
@@ -205,8 +215,9 @@ and quantitative tables.
 
 - Stable-series false alerts are reduced by V4.2/V4.3/V4.4 but **not eliminated**.
   Score calibration remains the central open challenge.
-- Synthetic benchmarking remains the quantitative core; sampled M5 checks are
-  exploratory plausibility work only (not formal validation).
+- Synthetic benchmarking remains the quantitative core; public-dataset checks
+  (Favorita, Rossmann) are exploratory event-linked plausibility audits only
+  (not gold-labeled real-world validation).
 - Detection delay on gradual-drift and intermittent demand is higher than the
   baseline at V4+ settings.
 - Parameter calibration was manual; no automated tuning is included.
