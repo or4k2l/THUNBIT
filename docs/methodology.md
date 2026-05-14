@@ -171,6 +171,13 @@ state-machine calibration (V4.4b) selected from exploratory checks on sampled
 real M5 retail item/store daily series.  This M5 work is a plausibility check,
 not a labeled benchmark or production validation.
 
+A completed synthetic benchmark shows that V4.4 is a **more conservative
+operating point** rather than a universally superior detector: it reduces
+stable-series alert burden and false-positive clustering relative to V4.3, but
+this comes at the cost of slower and occasionally weaker break detection on
+synthetic scenarios, especially for cycle-break cases.  V4.3 remains the more
+responsive historical comparison point.
+
 ## 8. Parameter definitions
 
 | Parameter             | Default (V4.4) | Description                                          |

@@ -137,8 +137,8 @@ See [docs/methodology.md](docs/methodology.md) for full details.
 | V4 | Hysteresis + smoothing + confirmation | 27.5% | Adds detection delay |
 | V4.1 | Cooldown, relaxed thresholds | 32.0% | Recovers some speed vs V4 |
 | V4.2 | Baseline-normalized scoring (median) | **3.2%** | Major improvement; over-damped on breaks |
-| V4.3 | Lower-quantile baseline + warmup | ~11% | Historical comparison point |
-| V4.4 (current, V4.4b calibration) | V4.3 normalized score + stricter state calibration | n/a (synthetic table unchanged) | Current recommended experimental detector |
+| V4.3 | Lower-quantile baseline + warmup | ~10.6% | Historical comparison point; more responsive |
+| V4.4 (current, V4.4b calibration) | V4.3 normalized score + stricter state calibration | **~7.8%** | Current recommended conservative experimental operating point |
 
 **V4.1 vs V4.2 – stable-series false alerts:**
 
@@ -152,15 +152,31 @@ V4.2 confirmed that **baseline-normalized scoring is the right design direction*
 for reducing false-alert burden.  However, it roughly tripled detection delay on
 cycle-break, gradual-drift, and intermittent scenarios.
 
-**V4.4** is now the recommended experimental operating point.  It keeps V4.3's
-lower-quantile normalized-score design and uses stricter state-machine
-calibration (V4.4b): `drift_entry=0.42`, `drift_confirm_days=3`,
-`shift_entry=0.68`, `shift_confirm_days=1`.
+**V4.4** is now the recommended experimental operating point for a **quieter /
+more conservative alerting posture**.  It keeps V4.3's lower-quantile
+normalized-score design and uses stricter state-machine calibration (V4.4b):
+`drift_entry=0.42`, `drift_confirm_days=3`, `shift_entry=0.68`,
+`shift_confirm_days=1`.
+
+A completed synthetic benchmark comparison (all six scenarios, 10 seeds each)
+shows that V4.4 is a more conservative operating point, not a universally
+superior detector:
+
+- V4.4 reduces stable-series alert burden (~7.8% alert days vs ~10.6% for V4.3)
+  and false-positive clustering (mean 2.4 FP clusters vs 3.6).
+- V4.4 also reduces break-detection sensitivity and increases mean detection
+  delay across synthetic scenarios, especially for `cycle_break` (detection
+  rate 0.70 vs 0.90; mean days late 47.3 vs 17.8).
+
+V4.3 remains the more responsive historical comparison point and should be
+preferred when faster synthetic break detection is the priority.
 
 The V4.4b choice was motivated by exploratory checks on sampled real M5 retail
 item/store daily demand series, where alert burden dropped relative to V4.3
-with a similar qualitative plausibility profile.  This is an external
-plausibility check only, **not** a labeled benchmark or production validation.
+with a similar qualitative plausibility profile.  Exploratory M5 plausibility
+checks support the preference for a quieter operating point but do not override
+the synthetic tradeoff story.  This is an external plausibility check only,
+**not** a labeled benchmark or production validation.
 False-alert calibration remains an active open problem.
 
 See [docs/benchmarking.md](docs/benchmarking.md) for the full iteration history
@@ -176,7 +192,7 @@ and quantitative tables.
 | V4.4 as recommended experimental detector | ✅ V4.4b calibration on V4.3 normalized-score design |
 | Synthetic benchmark (old vs. V4 vs. V4.1) | ✅ complete |
 | V4.2 score-normalization benchmark | ✅ complete |
-| V4.3 + V4.4 qualitative assessment | ✅ complete (V4.4b preferred) |
+| V4.3 + V4.4 synthetic benchmark (direct comparison) | ✅ complete — see `docs/benchmarking.md` |
 | Benchmark and walkthrough notebooks | ✅ committed (`notebooks/`) |
 | Reproducibility documentation | ✅ see `docs/reproducibility.md` |
 | Stable-series false-alert calibration | ❌ open problem (improved but unsolved) |
@@ -201,7 +217,7 @@ See [docs/limitations.md](docs/limitations.md) for the full list.
 
 ## Roadmap
 
-- [ ] Quantitative V4.4 benchmark across all six scenarios and 10 seeds
+- [x] ~~Quantitative V4.4 benchmark across all six scenarios and 10 seeds~~ (complete — see `docs/benchmarking.md`)
 - [ ] Investigate lower-quantile baseline parameter sensitivity
       (quantile level, window length, excess scale)
 - [ ] Automated parameter sweep over stable / drift / shift trade-off space

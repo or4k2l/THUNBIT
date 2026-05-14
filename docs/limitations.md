@@ -27,11 +27,17 @@ days dropped from ~32% (V4.1) to ~3%.  This confirmed that **score
 calibration – not state-transition logic – is the central design issue**.
 However, V4.2 also over-suppressed genuine breaks.
 
-**V4.4 (V4.4b calibration) is the current recommended experimental tradeoff**:
-it keeps V4.3's lower-quantile rolling baseline and warmup suppression, but
-uses stricter state-entry calibration motivated by exploratory sampled-M5
-checks.  V4.4 still fires false alerts on stable series; the improvement is
-meaningful but the problem remains open.
+**V4.4 (V4.4b calibration) is the current recommended conservative experimental
+operating point**: it keeps V4.3's lower-quantile rolling baseline and warmup
+suppression, but uses stricter state-entry calibration motivated by exploratory
+sampled-M5 checks.  A completed synthetic benchmark shows that V4.4 reduces
+stable-series alert burden (mean ~7.8% alert days vs ~10.6% for V4.3) and
+false-positive clustering (mean 2.4 FP clusters vs 3.6).  However, V4.4 also
+increases detection delay and reduces break-detection sensitivity on synthetic
+scenarios, especially for cycle-break cases (detection rate 0.70 vs 0.90 for
+V4.3).  V4.3 remains the more responsive historical comparison point.
+V4.4 still fires false alerts on stable series; the improvement is meaningful
+but the problem remains open.
 
 The remaining challenge is that the raw confidence score carries a systematic
 positive bias on stationary series because the KS statistic is sensitive to
@@ -108,6 +114,13 @@ detector, particularly on gradual-drift and intermittent demand.  V4 showed
 a mean delay of 35 days on intermittent scenarios (vs. 12 days for the
 baseline).  This is a direct consequence of the smoothing and confirmation
 mechanisms.
+
+V4.4 introduces additional detection delay relative to V4.3 across all
+synthetic break scenarios as a direct consequence of its stricter state-entry
+calibration.  The effect is most pronounced on cycle-break: mean days late
+rises from 17.8 (V4.3) to 47.3 (V4.4), and detection rate drops from 0.90 to
+0.70.  Applications where fast detection of cycle-break patterns is critical
+should consider whether V4.3's more responsive posture is preferable.
 
 ---
 
