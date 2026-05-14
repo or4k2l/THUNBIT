@@ -547,8 +547,9 @@ class StabilizedDemandDetectorV43(StabilizedDemandDetectorV42):
     Additional tuning relative to V4.2:
 
     * Longer ``baseline_window`` (28 vs. 21) for a slower, more stable baseline.
-    * Slightly higher ``excess_scale`` (2.5 vs. 2.0) to compensate for the
-      lower quantile producing a smaller baseline value.
+    * ``excess_scale`` remains 2.0; threshold recalibration is handled by
+      raising the entry levels to account for the different normalized score
+      range produced by the lower-quantile baseline.
     * Slightly more sensitive entry thresholds to recover break detection speed.
     * Longer ``cooldown_days`` (7 vs. 5).
 
