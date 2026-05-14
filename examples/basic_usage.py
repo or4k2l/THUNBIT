@@ -56,6 +56,10 @@ print(
 
 # ---------------------------------------------------------------------------
 # 3. V4.3 detector on the mean-shift series
+#    V4.3 is the current recommended experimental detector.
+#    It uses a lower-quantile rolling baseline to normalize the raw
+#    confidence score, reducing false alerts on stable series while
+#    preserving break detection responsiveness.
 # ---------------------------------------------------------------------------
 
 print()
@@ -78,6 +82,9 @@ if len(alert_days) > 0:
         f"\nFirst post-break alert: day {first_alert['t']}"
         f"  state={first_alert['state']}"
         f"  confidence={first_alert['confidence']:.4f}"
+        f"  (raw={first_alert['raw_confidence']:.4f}"
+        f"  baseline={first_alert['baseline_confidence']:.4f}"
+        f"  normalized={first_alert['normalized_confidence']:.4f})"
     )
 else:
     print("\nNo post-break alert detected.")
@@ -92,7 +99,10 @@ print("=" * 60)
 print("Last 5 rows of V4.3 output (mean-shift series)")
 print("=" * 60)
 
-display_cols = ["t", "state", "raw_confidence", "confidence", "pss", "action"]
+display_cols = [
+    "t", "state", "raw_confidence", "baseline_confidence",
+    "normalized_confidence", "confidence", "pss", "action",
+]
 print(result_shift_v43[display_cols].tail().to_string(index=False))
 
 print()

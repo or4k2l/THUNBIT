@@ -12,8 +12,8 @@ The most significant open problem.
 
 Every synthetic stable demand series tested (across all seeds and all detector
 variants) triggered at least one alert.  The stabilized variants (V4, V4.1,
-V4.3) reduce the **number** of false-alert clusters and the **fraction** of
-time spent in a non-STABLE state, but they do not eliminate false alerts
+V4.2, V4.3) reduce the **number** of false-alert clusters and the **fraction**
+of time spent in a non-STABLE state, but they do not eliminate false alerts
 entirely.
 
 This means that in an inventory or forecasting workflow, every SKU with stable
@@ -21,11 +21,24 @@ demand will still receive periodic "review" signals even when nothing has
 changed.  The false-alert calibration problem is **unsolved** in this
 prototype.
 
-Current hypothesis: the raw confidence score has a systematic positive bias on
-stationary series because the KS statistic is sensitive to finite-sample
-variation even when the underlying distribution is unchanged.  A possible
-direction for V5+ is to normalise the score against a rolling quiet-period
-baseline.
+**V4.2 showed a major improvement** on this dimension: by normalizing the raw
+confidence score against a rolling median baseline, stable-series alert
+days dropped from ~32% (V4.1) to ~3%.  This confirmed that **score
+calibration – not state-transition logic – is the central design issue**.
+However, V4.2 also over-suppressed genuine breaks.
+
+**V4.3 is the current best tradeoff**: it uses a lower-quantile rolling
+baseline and warmup suppression to partially recover break detection speed
+while keeping stable-series alert burden materially below V4.1 levels.
+V4.3 still fires false alerts on stable series; the improvement is meaningful
+but the problem remains open.
+
+The remaining challenge is that the raw confidence score carries a systematic
+positive bias on stationary series because the KS statistic is sensitive to
+finite-sample variation even when the underlying distribution is unchanged.
+Scoring relative to a rolling baseline partially compensates for this, but the
+right quantile, window, and threshold settings depend on demand volatility and
+series length in ways that have not been fully characterised.
 
 ---
 

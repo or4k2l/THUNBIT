@@ -111,7 +111,7 @@ otherwise            →  STABLE
 This is the simplest rule and the comparison baseline.  It is deliberately
 not smoothed or hysteresised, which makes it noisy but fast to respond.
 
-### Stabilized (V4, V4.1, V4.3)
+### Stabilized (V4, V4.1, V4.2, V4.3)
 
 The stabilized variants layer a state machine on top of the confidence score:
 
@@ -125,27 +125,67 @@ The stabilized variants layer a state machine on top of the confidence score:
 4. **Cooldown** (V4.1+) – after returning from an alert state to STABLE,
    re-escalation to DRIFT is suppressed for a fixed number of days.  This
    reduces fragmented repeated alert clusters.
+5. **Baseline normalization** (V4.2+) – instead of operating on the raw
+   confidence score, V4.2 and V4.3 subtract a rolling baseline before
+   applying the state machine.  This converts the absolute score into a
+   *relative-to-own-noise* signal and is the key innovation for reducing
+   false-alert burden on stable series.
+6. **Warmup suppression** (V4.3) – state changes from STABLE are suppressed
+   for an initial warmup period while the baseline history fills up.
 
 ---
 
-## 7. Parameter definitions
+## 7. Baseline normalization (V4.2 / V4.3)
+
+The core idea of V4.2 and V4.3 is that a stable series with high raw
+confidence simply has a *noisy but flat* confidence signal, whereas a series
+undergoing a genuine break has confidence that rises *above its own recent
+level*.
+
+The normalized score is computed as:
+
+```
+baseline_confidence = rolling_statistic(recent raw_confidence)
+excess_confidence   = max(0, raw_confidence - baseline_confidence)
+normalized_conf     = min(excess_confidence × excess_scale, 1.0)
+```
+
+The state machine then operates on `normalized_conf` instead of the raw score.
+
+**V4.2** uses a rolling median as the baseline.  This proved effective at
+reducing stable-series alerts but adapted too quickly to genuine breaks,
+re-anchoring the baseline upward and suppressing the break signal.
+
+**V4.3** uses a rolling 25th-percentile (lower quantile) baseline over a
+longer window.  The lower quantile stays closer to the noise floor and
+adapts more slowly during genuine breaks, preserving more of the break signal.
+V4.3 also adds warmup suppression to prevent spurious alerts while the
+baseline history is still short.
+
+---
+
+## 8. Parameter definitions
 
 | Parameter             | Default (V4.3) | Description                                          |
 |-----------------------|:--------------:|------------------------------------------------------|
 | `window_long`         | 90             | Length of the reference window (days)                |
 | `window_short`        | 21             | Length of the current window (days)                  |
 | `smoothing_window`    | 2              | Confidence averaging window                          |
-| `drift_entry`         | 0.32           | Smoothed confidence required to enter DRIFT          |
-| `drift_exit`          | 0.22           | Smoothed confidence below which DRIFT exits          |
-| `shift_entry`         | 0.58           | Smoothed confidence required to enter SHIFT          |
-| `shift_exit`          | 0.46           | Smoothed confidence below which SHIFT exits          |
+| `baseline_window`     | 28             | Window for rolling baseline statistic (V4.2/V4.3)   |
+| `baseline_quantile`   | 0.25           | Quantile used for baseline (V4.3)                    |
+| `excess_scale`        | 2.0            | Amplification factor applied to excess confidence    |
+| `drift_entry`         | 0.38           | Normalized confidence required to enter DRIFT        |
+| `drift_exit`          | 0.22           | Normalized confidence below which DRIFT exits        |
+| `shift_entry`         | 0.65           | Normalized confidence required to enter SHIFT        |
+| `shift_exit`          | 0.44           | Normalized confidence below which SHIFT exits        |
 | `drift_confirm_days`  | 2              | Consecutive days above drift_entry to enter DRIFT    |
 | `shift_confirm_days`  | 1              | Consecutive days above shift_entry to enter SHIFT    |
 | `cooldown_days`       | 7              | Suppression days after returning to STABLE           |
+| `warmup_days`         | 28             | Initial rows with alert-entry suppressed (V4.3)      |
 
 ---
 
-## 8. What THUNBIT does not do
+## 9. What THUNBIT does not do
 
 * It does not model seasonality or trend explicitly.
 * It does not produce demand forecasts.

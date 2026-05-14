@@ -16,6 +16,7 @@ from thunbit import (
     DemandStateDetector,
     StabilizedDemandDetector,
     StabilizedDemandDetectorV41,
+    StabilizedDemandDetectorV42,
     StabilizedDemandDetectorV43,
 )
 
@@ -46,6 +47,10 @@ EXPECTED_COLS_BASE = {
 
 EXPECTED_COLS_STAB = EXPECTED_COLS_BASE | {"drift_run", "shift_run"}
 
+EXPECTED_COLS_V42 = EXPECTED_COLS_STAB | {
+    "baseline_confidence", "normalized_confidence", "cooldown", "prev_state"
+}
+
 
 def test_base_output_schema():
     det = DemandStateDetector()
@@ -68,11 +73,19 @@ def test_stabilized_v41_output_schema():
     assert "cooldown" in result.columns
 
 
+def test_stabilized_v42_output_schema():
+    det = StabilizedDemandDetectorV42()
+    result = det.detect_rolling_stabilized(STABLE)
+    assert len(result) > 0
+    assert EXPECTED_COLS_V42.issubset(set(result.columns))
+
+
 def test_stabilized_v43_output_schema():
     det = StabilizedDemandDetectorV43()
     result = det.detect_rolling_stabilized(STABLE)
     assert len(result) > 0
-    assert EXPECTED_COLS_STAB.issubset(set(result.columns))
+    # V4.3 includes all V4.2 columns
+    assert EXPECTED_COLS_V42.issubset(set(result.columns))
 
 
 # ---------------------------------------------------------------------------
@@ -107,6 +120,16 @@ def test_base_detects_mean_shift():
     )
 
 
+def test_v42_detects_mean_shift():
+    """V4.2 detector should raise an alert after a clear mean shift."""
+    det = StabilizedDemandDetectorV42()
+    result = det.detect_rolling_stabilized(SHIFTED)
+    post_break = result[result["t"] >= 230]
+    assert post_break["state"].isin(["DRIFT", "SHIFT"]).any(), (
+        "Expected DRIFT or SHIFT on post-shift portion of series"
+    )
+
+
 def test_v43_detects_mean_shift():
     """V4.3 detector should raise an alert after a clear mean shift."""
     det = StabilizedDemandDetectorV43()
@@ -131,6 +154,49 @@ def test_stable_series_not_all_shift():
     result = det.detect_rolling(STABLE)
     shift_frac = (result["state"] == "SHIFT").mean()
     assert shift_frac < 0.5, f"SHIFT fraction {shift_frac:.2f} is unexpectedly high"
+
+
+# ---------------------------------------------------------------------------
+# Baseline normalization checks (V4.2 / V4.3)
+# ---------------------------------------------------------------------------
+
+def test_v42_baseline_confidence_nonneg():
+    """V4.2 baseline_confidence should always be non-negative."""
+    det = StabilizedDemandDetectorV42()
+    result = det.detect_rolling_stabilized(STABLE)
+    assert (result["baseline_confidence"] >= 0.0).all()
+
+
+def test_v42_normalized_confidence_in_range():
+    """V4.2 normalized_confidence should be clipped to [0, 1]."""
+    det = StabilizedDemandDetectorV42()
+    result = det.detect_rolling_stabilized(STABLE)
+    assert result["normalized_confidence"].between(0.0, 1.0).all()
+
+
+def test_v43_baseline_confidence_nonneg():
+    """V4.3 baseline_confidence should always be non-negative."""
+    det = StabilizedDemandDetectorV43()
+    result = det.detect_rolling_stabilized(STABLE)
+    assert (result["baseline_confidence"] >= 0.0).all()
+
+
+def test_v43_normalized_confidence_in_range():
+    """V4.3 normalized_confidence should be clipped to [0, 1]."""
+    det = StabilizedDemandDetectorV43()
+    result = det.detect_rolling_stabilized(STABLE)
+    assert result["normalized_confidence"].between(0.0, 1.0).all()
+
+
+def test_v43_warmup_suppression():
+    """V4.3 warmup suppression should prevent any alert in the first warmup_days rows."""
+    det = StabilizedDemandDetectorV43(warmup_days=30)
+    result = det.detect_rolling_stabilized(SHIFTED)
+    warmup_rows = result.iloc[:30]
+    # During warmup, state should remain STABLE (no new entries)
+    assert (warmup_rows["state"] == "STABLE").all(), (
+        "V4.3 should suppress new alert entries during warmup period"
+    )
 
 
 # ---------------------------------------------------------------------------
