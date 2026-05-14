@@ -44,6 +44,13 @@ pip install -e .          # install from repo root
 python examples/basic_usage.py
 ```
 
+Or open the walkthrough notebook:
+
+```bash
+pip install -e ".[dev]"   # includes jupyter
+jupyter notebook notebooks/01_detector_walkthrough.ipynb
+```
+
 Or directly in Python:
 
 ```python
@@ -73,12 +80,17 @@ thunbit/            Python package
 examples/
   basic_usage.py    Runnable end-to-end example (synthetic data)
 
-docs/
-  methodology.md    How the detector works
-  benchmarking.md   Simulation results and iteration history
-  limitations.md    Known open problems
+notebooks/
+  01_detector_walkthrough.ipynb    Import, run, and inspect all detector variants
+  02_benchmark_iterations.ipynb   Reproducible benchmark across synthetic scenarios
+  03_cost_simulation.ipynb        Illustrative cost framing (directional only)
 
-notebooks/          Benchmark notebooks (planned / in progress)
+docs/
+  methodology.md      How the detector works
+  benchmarking.md     Simulation results and iteration history
+  limitations.md      Known open problems
+  reproducibility.md  How to install, run, and reproduce results
+
 data/               Placeholder for data files (currently synthetic only)
 tests/              Lightweight unit tests
 ```
@@ -158,10 +170,11 @@ and quantitative tables.
 | Synthetic benchmark (old vs. V4 vs. V4.1) | ✅ complete |
 | V4.2 score-normalization benchmark | ✅ complete |
 | V4.3 qualitative assessment | ✅ complete |
+| Benchmark and walkthrough notebooks | ✅ committed (`notebooks/`) |
+| Reproducibility documentation | ✅ see `docs/reproducibility.md` |
 | Stable-series false-alert calibration | ❌ open problem (improved but unsolved) |
 | Real-data validation | ❌ not started |
 | Automated parameter tuning | ❌ not started |
-| Notebook cleanup and commit | 🔄 in progress |
 
 ---
 
@@ -180,7 +193,6 @@ See [docs/limitations.md](docs/limitations.md) for the full list.
 
 ## Roadmap
 
-- [ ] Commit and clean up benchmark notebooks
 - [ ] Quantitative V4.3 benchmark across all six scenarios and 10 seeds
 - [ ] Investigate lower-quantile baseline parameter sensitivity
       (quantile level, window length, excess scale)
