@@ -7,8 +7,8 @@ THUNBIT demand-regime instability detector.
 
 | Notebook | Description |
 |----------|-------------|
-| `01_detector_walkthrough.ipynb` | Imports the package, generates synthetic demand series, and runs all four detector variants (`DemandStateDetector`, `StabilizedDemandDetector`, `StabilizedDemandDetectorV41`, `StabilizedDemandDetectorV42`, `StabilizedDemandDetectorV43`).  Includes a side-by-side false-alert summary and an optional confidence plot. |
-| `02_benchmark_iterations.ipynb` | Compact reproducible benchmark across four synthetic scenarios (stable, mean-shift, variance-spike, gradual-drift) comparing Baseline / V4.1 / V4.2 / V4.3.  Includes summary tables and the qualitative iteration story. |
+| `01_detector_walkthrough.ipynb` | Imports the package, generates synthetic demand series, and runs detector variants including the recommended `StabilizedDemandDetectorV44` (plus `DemandStateDetector`, `StabilizedDemandDetector`, `StabilizedDemandDetectorV41`, `StabilizedDemandDetectorV42`, `StabilizedDemandDetectorV43`). Includes a side-by-side false-alert summary and an optional confidence plot. |
+| `02_benchmark_iterations.ipynb` | Compact reproducible benchmark across four synthetic scenarios (stable, mean-shift, variance-spike, gradual-drift) comparing Baseline / V4.1 / V4.2 / V4.3 / V4.4.  Includes summary tables and the qualitative iteration story. |
 | `03_cost_simulation.ipynb` | Illustrative cost framing: review cost vs missed-detection stockout cost, sensitivity to the cost ratio, and explicit caveats about what the model does and does not show. |
 
 ## Notes on these notebooks

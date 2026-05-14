@@ -25,10 +25,10 @@ one-dimensional NumPy array or list of daily demand observations:
 
 ```python
 import numpy as np
-from thunbit import StabilizedDemandDetectorV43
+from thunbit import StabilizedDemandDetectorV44
 
 demand = np.array([...])   # your daily demand series
-det = StabilizedDemandDetectorV43()
+det = StabilizedDemandDetectorV44()
 result = det.detect_rolling_stabilized(demand)
 print(result[["t", "state", "confidence"]].tail(10))
 ```

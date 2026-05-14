@@ -15,7 +15,7 @@ import pandas as pd
 
 from thunbit import (
     DemandStateDetector,
-    StabilizedDemandDetectorV43,
+    StabilizedDemandDetectorV44,
 )
 
 
@@ -55,26 +55,25 @@ print(
 
 
 # ---------------------------------------------------------------------------
-# 3. V4.3 detector on the mean-shift series
-#    V4.3 is the current recommended experimental detector.
-#    It uses a lower-quantile rolling baseline to normalize the raw
-#    confidence score, reducing false alerts on stable series while
-#    preserving break detection responsiveness.
+# 3. V4.4 detector on the mean-shift series
+#    V4.4 (V4.4b calibration) is the current recommended experimental
+#    detector. It keeps V4.3's lower-quantile normalized-score design but
+#    uses stricter state-machine calibration from exploratory M5 checks.
 # ---------------------------------------------------------------------------
 
 print()
 print("=" * 60)
-print("V4.3 detector on mean-shift series (shift at day 200)")
+print("V4.4 detector on mean-shift series (shift at day 200)")
 print("=" * 60)
 
-det_v43 = StabilizedDemandDetectorV43()
-result_shift_v43 = det_v43.detect_rolling_stabilized(shifted_series)
+det_v44 = StabilizedDemandDetectorV44()
+result_shift_v44 = det_v44.detect_rolling_stabilized(shifted_series)
 
-state_counts_shift = result_shift_v43["state"].value_counts()
+state_counts_shift = result_shift_v44["state"].value_counts()
 print(state_counts_shift.to_string())
 
 # Find first sustained DRIFT or SHIFT after the break
-post_break = result_shift_v43[result_shift_v43["t"] >= 200]
+post_break = result_shift_v44[result_shift_v44["t"] >= 200]
 alert_days = post_break[post_break["state"].isin(["DRIFT", "SHIFT"])]
 if len(alert_days) > 0:
     first_alert = alert_days.iloc[0]
@@ -96,14 +95,14 @@ else:
 
 print()
 print("=" * 60)
-print("Last 5 rows of V4.3 output (mean-shift series)")
+print("Last 5 rows of V4.4 output (mean-shift series)")
 print("=" * 60)
 
 display_cols = [
     "t", "state", "raw_confidence", "baseline_confidence",
     "normalized_confidence", "confidence", "pss", "action",
 ]
-print(result_shift_v43[display_cols].tail().to_string(index=False))
+print(result_shift_v44[display_cols].tail().to_string(index=False))
 
 print()
 print("Done.  See docs/ for methodology and benchmarking details.")

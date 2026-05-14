@@ -2,7 +2,7 @@
 
 > **Research prototype.**  THUNBIT is an experimental detector for demand-regime
 > instability in daily SKU-level demand series.  It is not a forecasting model,
-> not production-ready, and has not been validated on real-world data.
+> not production-ready, and has not been formally validated on real-world data.
 
 THUNBIT is a research prototype for detecting when daily demand has stopped
 behaving like the pattern an inventory or forecasting workflow implicitly relies
@@ -55,14 +55,14 @@ Or directly in Python:
 
 ```python
 import numpy as np
-from thunbit import StabilizedDemandDetectorV43
+from thunbit import StabilizedDemandDetectorV44
 
 # Your daily demand series.
 # window_long + window_short = 111 observations are consumed before the first
 # output row is produced; provide more data for meaningful detection results.
 demand = np.array([...])
 
-det = StabilizedDemandDetectorV43()
+det = StabilizedDemandDetectorV44()
 result = det.detect_rolling_stabilized(demand)
 print(result[["t", "state", "confidence", "action"]].tail(10))
 ```
@@ -74,7 +74,7 @@ print(result[["t", "state", "confidence", "action"]].tail(10))
 ```
 thunbit/            Python package
   detector.py       Baseline DemandStateDetector (no state machine)
-  stabilized.py     Stabilized variants: V4, V4.1, V4.2, V4.3
+  stabilized.py     Stabilized variants: V4, V4.1, V4.2, V4.3, V4.4
   _states.py        State constants
 
 examples/
@@ -112,12 +112,13 @@ A weighted combination of the maximum and mean evidence values forms a
 (hysteresis + smoothing + confirmation + cooldown) on top of this score to
 reduce noisy state flickering.
 
-**V4.2 and V4.3** go further by normalizing the raw score against a rolling
+**V4.2, V4.3, and V4.4** go further by normalizing the raw score against a rolling
 baseline of the SKU's own recent confidence values, producing a
 *relative-to-own-noise* signal.  Benchmarks showed this is the key mechanism
-for reducing false alerts on stable series.  V4.3 uses a 25th-percentile
-(lower-quantile) baseline over a longer window, plus warmup suppression, to
-recover break detection responsiveness lost in V4.2.
+for reducing false alerts on stable series.  V4.3 introduced the 25th-percentile
+(lower-quantile) baseline over a longer window plus warmup suppression.
+V4.4 (the V4.4b calibration) keeps that normalized-score design and applies a
+stricter state-machine calibration.
 
 See [docs/methodology.md](docs/methodology.md) for full details.
 
@@ -136,7 +137,8 @@ See [docs/methodology.md](docs/methodology.md) for full details.
 | V4 | Hysteresis + smoothing + confirmation | 27.5% | Adds detection delay |
 | V4.1 | Cooldown, relaxed thresholds | 32.0% | Recovers some speed vs V4 |
 | V4.2 | Baseline-normalized scoring (median) | **3.2%** | Major improvement; over-damped on breaks |
-| V4.3 (current) | Lower-quantile baseline + warmup | ~11% | Best current tradeoff |
+| V4.3 | Lower-quantile baseline + warmup | ~11% | Historical comparison point |
+| V4.4 (current, V4.4b calibration) | V4.3 normalized score + stricter state calibration | n/a (synthetic table unchanged) | Current recommended experimental detector |
 
 **V4.1 vs V4.2 – stable-series false alerts:**
 
@@ -150,11 +152,16 @@ V4.2 confirmed that **baseline-normalized scoring is the right design direction*
 for reducing false-alert burden.  However, it roughly tripled detection delay on
 cycle-break, gradual-drift, and intermittent scenarios.
 
-**V4.3** recovered much of that lost responsiveness by using a lower-quantile
-(25th-percentile) rolling baseline and warmup suppression.  It is the current
-best experimental operating point.  **V4.3 does not solve the stable-series
-false-alert problem.**  Every stable seed still receives some alerts.  Score
-calibration remains an active open problem.
+**V4.4** is now the recommended experimental operating point.  It keeps V4.3's
+lower-quantile normalized-score design and uses stricter state-machine
+calibration (V4.4b): `drift_entry=0.42`, `drift_confirm_days=3`,
+`shift_entry=0.68`, `shift_confirm_days=1`.
+
+The V4.4b choice was motivated by exploratory checks on sampled real M5 retail
+item/store daily demand series, where alert burden dropped relative to V4.3
+with a similar qualitative plausibility profile.  This is an external
+plausibility check only, **not** a labeled benchmark or production validation.
+False-alert calibration remains an active open problem.
 
 See [docs/benchmarking.md](docs/benchmarking.md) for the full iteration history
 and quantitative tables.
@@ -166,23 +173,24 @@ and quantitative tables.
 | Item | Status |
 |------|--------|
 | Core detector and state machine | ✅ implemented |
-| V4.3 as recommended experimental detector | ✅ baseline-normalized variant |
+| V4.4 as recommended experimental detector | ✅ V4.4b calibration on V4.3 normalized-score design |
 | Synthetic benchmark (old vs. V4 vs. V4.1) | ✅ complete |
 | V4.2 score-normalization benchmark | ✅ complete |
-| V4.3 qualitative assessment | ✅ complete |
+| V4.3 + V4.4 qualitative assessment | ✅ complete (V4.4b preferred) |
 | Benchmark and walkthrough notebooks | ✅ committed (`notebooks/`) |
 | Reproducibility documentation | ✅ see `docs/reproducibility.md` |
 | Stable-series false-alert calibration | ❌ open problem (improved but unsolved) |
-| Real-data validation | ❌ not started |
+| Real-data checks | ⚠️ exploratory sampled-M5 plausibility checks only (no formal validation) |
 | Automated parameter tuning | ❌ not started |
 
 ---
 
 ## Known limitations
 
-- Stable-series false alerts are reduced by V4.2/V4.3 but **not eliminated**.
+- Stable-series false alerts are reduced by V4.2/V4.3/V4.4 but **not eliminated**.
   Score calibration remains the central open challenge.
-- All benchmarks are simulated; no real-SKU data has been tested.
+- Synthetic benchmarking remains the quantitative core; sampled M5 checks are
+  exploratory plausibility work only (not formal validation).
 - Detection delay on gradual-drift and intermittent demand is higher than the
   baseline at V4+ settings.
 - Parameter calibration was manual; no automated tuning is included.
@@ -193,7 +201,7 @@ See [docs/limitations.md](docs/limitations.md) for the full list.
 
 ## Roadmap
 
-- [ ] Quantitative V4.3 benchmark across all six scenarios and 10 seeds
+- [ ] Quantitative V4.4 benchmark across all six scenarios and 10 seeds
 - [ ] Investigate lower-quantile baseline parameter sensitivity
       (quantile level, window length, excess scale)
 - [ ] Automated parameter sweep over stable / drift / shift trade-off space
