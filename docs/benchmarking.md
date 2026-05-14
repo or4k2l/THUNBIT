@@ -282,14 +282,70 @@ on synthetic scenarios, especially for cycle-break cases.
 
 V4.4 can remain the recommended experimental operating point for applications
 where a quieter / more conservative alerting posture is preferred.  The
-exploratory sampled-M5 plausibility checks provide an additional external
-motivation for this quieter calibration.  However, V4.3 remains the more
-responsive historical comparison point and should be considered when faster
-synthetic break detection is the priority.
+exploratory public-dataset plausibility checks (Favorita, Rossmann) provide
+additional external motivation for this quieter calibration.  However, V4.3
+remains the more responsive historical comparison point and should be
+considered when faster synthetic break detection is the priority.
 
 ---
 
-## 3. Observed trade-off summary
+## 3. Public plausibility audits
+
+Synthetic benchmarks remain the quantitative core of the THUNBIT evaluation
+and the primary controlled basis for comparing V4.3 and V4.4.  In addition,
+exploratory non-labeled plausibility checks were run on two public real-world
+retail datasets to provide event-linked external corroboration of the synthetic
+findings.
+
+> **Important:** these are **exploratory event-linked plausibility audits**,
+> not gold-labeled real-world validation pipelines.  No ground-truth break
+> labels were available for either dataset.  These results do not establish
+> production readiness or proven real-world performance.
+
+### Favorita (Ecuador grocery, daily store × family panel)
+
+Favorita is currently the strongest public external plausibility dataset used
+with THUNBIT.  The audit was run on a targeted daily `store_nbr × family`
+panel drawn from the Corporación Favorita grocery sales data.
+
+Key observations:
+
+* V4.4 again appeared as a **quieter / more conservative** operating point
+  than V4.3 — consistent with the synthetic benchmark findings.
+* Alerts were **frequently adjacent to transaction-shock windows**, suggesting
+  the detector responds to the kind of demand events present in real grocery data.
+* Alerts were **often near mapped holiday periods**, providing event-linked
+  plausibility evidence that the detector is sensitive to calendar-driven demand
+  changes.
+
+This is a strong public plausibility check.  It is **not** formal validation;
+the analysis should be interpreted as a non-labeled external corroboration only.
+
+### Rossmann (German drug-store chain, daily)
+
+Rossmann provides a secondary daily retail plausibility corroboration.
+
+Key observations:
+
+* Alerts **clustered near store closure and reopening transitions** — a
+  plausible and interpretable alert pattern in the context of this dataset.
+* V4.4 was again **quieter than V4.3**, consistent with the synthetic and
+  Favorita findings.
+
+As with Favorita, this is an exploratory non-labeled external check and should
+not be interpreted as formal validation of detector performance.
+
+### Interpretation
+
+The consistent direction across synthetic and public plausibility checks —
+V4.4 as a quieter / more conservative operating point — strengthens the
+motivation for the V4.4b calibration.  However, all public-dataset observations
+are exploratory and event-linked only; they do not constitute a formal benchmark
+or ground-truth validation.
+
+---
+
+## 4. Observed trade-off summary
 
 The core tension in this design is:
 
@@ -312,7 +368,7 @@ central design challenge.
 
 ---
 
-## 4. Business-cost context
+## 5. Business-cost context
 
 A preliminary cost simulation suggested that alert value (net of cost of
 unnecessary review) becomes positive when stockout costs materially exceed
@@ -322,7 +378,7 @@ interpreted as a demonstration of production value.
 
 ---
 
-## 5. What was not benchmarked
+## 6. What was not benchmarked
 
 * Real-world SKU data
 * Demand series with strong trend or multiple seasonalities

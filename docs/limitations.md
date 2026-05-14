@@ -59,10 +59,12 @@ exhibits:
 * Autocorrelation structures that differ from the simulated scenarios
 * Sparse or intermittent demand with structural zeros
 
-Exploratory checks were run on sampled M5 retail item/store series to guide
-follow-up calibration, but there is still **no formal real-data benchmark or
-validation pipeline** in this repository.  Any observed performance on
-simulated scenarios may not generalize.
+Exploratory plausibility checks were run on two public retail datasets
+(Favorita and Rossmann) to provide event-linked external corroboration.
+These are **non-labeled external checks** and are not gold-labeled real-world
+validation.  There is still **no formal real-data benchmark or validation
+pipeline** in this repository.  Any observed performance on simulated scenarios
+may not generalize.
 
 ---
 
