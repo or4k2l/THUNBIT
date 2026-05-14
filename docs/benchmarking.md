@@ -206,7 +206,7 @@ have not been validated beyond these synthetic experiments.
 
 ---
 
-### V4.4 (V4.4b calibration) – current recommended experimental operating point
+### V4.4 (V4.4b calibration) – current recommended conservative experimental operating point
 
 V4.4 keeps V4.3's normalized-score structure (25th-percentile baseline,
 28-day baseline window, warmup suppression, cooldown) and changes only the
@@ -226,6 +226,67 @@ This is an external plausibility check only.  It is **not** a formal labeled
 benchmark and does **not** establish production readiness or real-world
 validation.  The false-alert calibration problem remains open.
 
+#### Synthetic benchmark: V4.3 vs V4.4
+
+A direct synthetic benchmark comparison between V4.3 and V4.4 was completed
+across all six scenarios and 10 random seeds.  The results show that V4.4 is
+a **more conservative operating point**, not a detector that is simply or
+universally better than V4.3.
+
+**Stable-series (no break):**
+
+| Metric | V4.3 | V4.4 |
+|--------|:----:|:----:|
+| `any_alert_rate` | 1.00 | 1.00 |
+| `mean_alert_days_pct` | 10.6% | **7.8%** |
+| `mean_fp_clusters` | 3.6 | **2.4** |
+
+V4.4 reduces stable-series alert burden and false-positive clustering
+relative to V4.3.
+
+**Break-scenario summary (all break scenarios, 10 seeds each):**
+
+| Metric | V4.3 | V4.4 |
+|--------|:----:|:----:|
+| `break_detection_rate` | **0.98** | 0.92 |
+| `break_mean_days_late` | **14.8** | 21.0 |
+| `break_mean_alert_days_pct` | 12.2% | **8.6%** |
+| `break_mean_fp_clusters` | 3.18 | **1.98** |
+
+V4.4 also reduces break-period alert burden and false-positive clustering,
+but it reduces detection sensitivity and increases mean detection delay.
+
+**Scenario-specific break results:**
+
+| Scenario | Detector | Detection rate | Mean days late | Mean FP clusters |
+|----------|----------|:--------------:|:--------------:|:----------------:|
+| `mean_shift` | V4.3 | 1.00 | **3.7** | 3.1 |
+| `mean_shift` | V4.4 | 1.00 | 9.9 | **2.1** |
+| `variance_spike` | V4.3 | 1.00 | **6.5** | 3.5 |
+| `variance_spike` | V4.4 | 1.00 | 7.5 | **2.2** |
+| `gradual_drift` | V4.3 | **1.00** | **43.5** | 3.1 |
+| `gradual_drift` | V4.4 | 0.90 | 46.7 | **2.0** |
+| `cycle_break` | V4.3 | **0.90** | **17.8** | 2.5 |
+| `cycle_break` | V4.4 | 0.70 | 47.3 | **1.4** |
+| `intermittent` | V4.3 | 1.00 | **3.0** | 3.7 |
+| `intermittent` | V4.4 | 1.00 | 4.1 | **2.2** |
+
+The most important qualitative result: V4.4 is quieter than V4.3, but this
+is paid for by slower and occasionally weaker synthetic break detection,
+**especially on `cycle_break`** (detection rate drops from 0.90 to 0.70;
+mean days late rises from 17.8 to 47.3).
+
+Relative to V4.3, V4.4 reduces stable-series alert burden and false-positive
+clustering, but this comes with slower and occasionally weaker break detection
+on synthetic scenarios, especially for cycle-break cases.
+
+V4.4 can remain the recommended experimental operating point for applications
+where a quieter / more conservative alerting posture is preferred.  The
+exploratory sampled-M5 plausibility checks provide an additional external
+motivation for this quieter calibration.  However, V4.3 remains the more
+responsive historical comparison point and should be considered when faster
+synthetic break detection is the priority.
+
 ---
 
 ## 3. Observed trade-off summary
@@ -236,11 +297,11 @@ The core tension in this design is:
 
 V4.2 showed that moving from state-machine filtering to score normalization
 is the right approach.  V4.3 demonstrated that the lower-quantile baseline
-provides a better operating point than the median baseline, and V4.4 (V4.4b)
-adds stricter state-machine calibration motivated by exploratory M5 plausibility
-checks.  Still, no
-configuration tested so far achieves both low stable-series false alerts
-and fast break detection simultaneously.
+provides a better operating point than the median baseline.  V4.4 (V4.4b)
+adds stricter state-machine calibration that further reduces alert burden at
+the cost of detection responsiveness — most notably on cycle-break scenarios.
+Still, no configuration tested so far achieves both low stable-series false
+alerts and fast break detection simultaneously.
 
 This is consistent with the inherent difficulty of the problem: in the
 absence of ground-truth labels on real data, distinguishing noise from a
