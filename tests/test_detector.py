@@ -313,6 +313,8 @@ def test_v45_suppresses_short_low_conf_isolated_episode():
     confs = [0.1] * 5 + [0.48, 0.50, 0.52] + [0.1] * 20
     df = det._apply_adaptive_episode_gating(pd.DataFrame(_v45_fixture_output(states, confs)))
     assert (df.iloc[5:8]["state"] == "STABLE").all()
+    assert (df.iloc[5:8]["action"] == STATE_ACTIONS["STABLE"]).all()
+    assert (df.iloc[5:8]["horizon"] == 50.0).all()
     assert np.allclose(df.iloc[5:8]["confidence"].to_numpy(), np.array([0.48, 0.50, 0.52]))
 
 

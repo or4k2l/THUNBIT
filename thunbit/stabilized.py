@@ -886,6 +886,18 @@ class StabilizedDemandDetectorV45(StabilizedDemandDetectorV44):
         return episodes
 
     @staticmethod
+    def _gap_from_t_values(start_t, end_t) -> int:
+        """Compute non-alert gap length from two timeline points."""
+        delta = start_t - end_t
+        if isinstance(delta, np.timedelta64):
+            gap = int(delta / np.timedelta64(1, "D")) - 1
+        elif hasattr(delta, "days"):
+            gap = int(delta.days) - 1
+        else:
+            gap = int(delta) - 1
+        return int(max(0, gap))
+
+    @staticmethod
     def _episode_gap_days(
         t_values: np.ndarray,
         episodes: list[tuple[int, int]],
@@ -898,11 +910,15 @@ class StabilizedDemandDetectorV45(StabilizedDemandDetectorV44):
 
         if episode_idx > 0:
             prev_end_idx = episodes[episode_idx - 1][1]
-            prev_gap = int(max(0, t_values[start_idx] - t_values[prev_end_idx] - 1))
+            prev_gap = StabilizedDemandDetectorV45._gap_from_t_values(
+                t_values[start_idx], t_values[prev_end_idx]
+            )
 
         if episode_idx < len(episodes) - 1:
             next_start_idx = episodes[episode_idx + 1][0]
-            next_gap = int(max(0, t_values[next_start_idx] - t_values[end_idx] - 1))
+            next_gap = StabilizedDemandDetectorV45._gap_from_t_values(
+                t_values[next_start_idx], t_values[end_idx]
+            )
 
         return prev_gap, next_gap
 
