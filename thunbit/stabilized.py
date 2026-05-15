@@ -886,9 +886,9 @@ class StabilizedDemandDetectorV45(StabilizedDemandDetectorV44):
         return episodes
 
     @staticmethod
-    def _gap_from_t_values(start_t, end_t) -> int:
-        """Compute non-alert gap length from two timeline points."""
-        delta = start_t - end_t
+    def _gap_from_t_values(later_t, earlier_t) -> int:
+        """Compute non-alert gap length from ordered timeline points."""
+        delta = later_t - earlier_t
         if isinstance(delta, np.timedelta64):
             gap = int(delta / np.timedelta64(1, "D")) - 1
         elif hasattr(delta, "days"):

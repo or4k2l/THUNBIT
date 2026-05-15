@@ -287,7 +287,7 @@ def test_v45_refinement_defaults():
 
 
 def _v45_fixture_output(states, confidences):
-    t_vals = np.arange(200, 200 + len(states))
+    t_vals = np.arange(len(states))
     return {
         "t": t_vals,
         "date": t_vals,
