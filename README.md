@@ -4,6 +4,7 @@
 > instability in daily SKU-level demand series.  It is not a forecasting model,
 > not production-ready, and has not been formally validated on real-world data.
 
+THUNBIT converts changes in demand behaviour into an operational confidence signal and state sequence (STABLE, DRIFT, SHIFT).
 <img width="2968" height="1939" alt="thunbit_synthetic_explainer" src="https://github.com/user-attachments/assets/ae2ce9c4-22ce-4e63-a4b4-f594a6736796" />
 
 THUNBIT is a research prototype for detecting when daily demand has stopped
@@ -17,6 +18,7 @@ score and maps it to an operational state signal:
 | **DRIFT**  | Sustained moderate evidence of change; review recommended. |
 | **SHIFT**  | Sustained strong evidence of a structural break. |
 
+V4.5 keeps the V4.4 core logic but suppresses short, weak, isolated alert episodes through adaptive episode gating.
 <img width="2599" height="1379" alt="thunbit_v44_vs_v45_example" src="https://github.com/user-attachments/assets/d53e98b8-b22e-4d98-b050-0c15b007245a" />
 
 ---
