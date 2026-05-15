@@ -56,17 +56,19 @@ Or directly in Python:
 
 ```python
 import numpy as np
-from thunbit import StabilizedDemandDetectorV44
+from thunbit import StabilizedDemandDetectorV45
 
 # Your daily demand series.
 # window_long + window_short = 111 observations are consumed before the first
 # output row is produced; provide more data for meaningful detection results.
 demand = np.array([...])
 
-det = StabilizedDemandDetectorV44()
+det = StabilizedDemandDetectorV45()
 result = det.detect_rolling_stabilized(demand)
 print(result[["t", "state", "confidence", "action"]].tail(10))
 ```
+
+V4.5 is the current refinement release (V4.4 core + adaptive episode gating).
 
 ---
 
