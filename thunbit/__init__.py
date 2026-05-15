@@ -11,6 +11,7 @@ StabilizedDemandDetectorV41  : V4.1 – adds cooldown, relaxed thresholds
 StabilizedDemandDetectorV42  : V4.2 – baseline-normalized scoring (historical reference)
 StabilizedDemandDetectorV43  : V4.3 – historical lower-quantile + warmup reference
 StabilizedDemandDetectorV44  : V4.4 (V4.4b calibration) – recommended experimental operating point
+StabilizedDemandDetectorV45  : V4.5 – V4.4 core + adaptive episode-gating refinement
 STATE_ACTIONS                : state → recommended action mapping
 STATE_HORIZONS               : state → default planning horizon mapping
 """
@@ -22,6 +23,7 @@ from .stabilized import (
     StabilizedDemandDetectorV42,
     StabilizedDemandDetectorV43,
     StabilizedDemandDetectorV44,
+    StabilizedDemandDetectorV45,
 )
 from ._states import STATE_ACTIONS, STATE_HORIZONS
 
@@ -32,6 +34,7 @@ __all__ = [
     "StabilizedDemandDetectorV42",
     "StabilizedDemandDetectorV43",
     "StabilizedDemandDetectorV44",
+    "StabilizedDemandDetectorV45",
     "STATE_ACTIONS",
     "STATE_HORIZONS",
 ]
