@@ -10,15 +10,19 @@ They verify that:
 """
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from thunbit import (
     DemandStateDetector,
+    STATE_ACTIONS,
+    STATE_HORIZONS,
     StabilizedDemandDetector,
     StabilizedDemandDetectorV41,
     StabilizedDemandDetectorV42,
     StabilizedDemandDetectorV43,
     StabilizedDemandDetectorV44,
+    StabilizedDemandDetectorV45,
 )
 
 RNG = np.random.default_rng(0)
@@ -97,6 +101,13 @@ def test_stabilized_v44_output_schema():
     assert EXPECTED_COLS_V42.issubset(set(result.columns))
 
 
+def test_stabilized_v45_output_schema():
+    det = StabilizedDemandDetectorV45()
+    result = det.detect_rolling_stabilized(STABLE)
+    assert len(result) > 0
+    assert EXPECTED_COLS_V42.issubset(set(result.columns))
+
+
 # ---------------------------------------------------------------------------
 # Valid state values
 # ---------------------------------------------------------------------------
@@ -118,6 +129,13 @@ def test_v43_valid_states(series):
 @pytest.mark.parametrize("series", [STABLE, SHIFTED])
 def test_v44_valid_states(series):
     det = StabilizedDemandDetectorV44()
+    result = det.detect_rolling_stabilized(series)
+    assert set(result["state"]).issubset({"STABLE", "DRIFT", "SHIFT"})
+
+
+@pytest.mark.parametrize("series", [STABLE, SHIFTED])
+def test_v45_valid_states(series):
+    det = StabilizedDemandDetectorV45()
     result = det.detect_rolling_stabilized(series)
     assert set(result["state"]).issubset({"STABLE", "DRIFT", "SHIFT"})
 
@@ -257,6 +275,73 @@ def test_v44_calibration_defaults():
     assert det.shift_exit == 0.44
     assert det.drift_confirm_days == 3
     assert det.shift_confirm_days == 1
+
+
+def test_v45_refinement_defaults():
+    det = StabilizedDemandDetectorV45()
+    assert det.suppress_max_len == 3
+    assert det.suppress_max_mean_conf == 0.52
+    assert det.suppress_min_prev_gap == 14
+    assert det.suppress_min_next_gap == 14
+    assert det.merge_enabled is False
+
+
+def _v45_fixture_output(states, confidences):
+    t_vals = np.arange(200, 200 + len(states))
+    return {
+        "t": t_vals,
+        "date": t_vals,
+        "state": states,
+        "raw_confidence": confidences,
+        "baseline_confidence": np.zeros(len(states)),
+        "normalized_confidence": confidences,
+        "confidence": confidences,
+        "pss": np.full(len(states), 50.0),
+        "horizon": [STATE_HORIZONS[s] for s in states],
+        "action": [STATE_ACTIONS[s] for s in states],
+        "evidence": ["{}"] * len(states),
+        "drift_run": np.zeros(len(states), dtype=int),
+        "shift_run": np.zeros(len(states), dtype=int),
+        "cooldown": np.zeros(len(states), dtype=int),
+        "prev_state": ["STABLE"] + states[:-1],
+    }
+
+
+def test_v45_suppresses_short_low_conf_isolated_episode():
+    det = StabilizedDemandDetectorV45()
+    states = ["STABLE"] * 5 + ["DRIFT"] * 3 + ["STABLE"] * 20
+    confs = [0.1] * 5 + [0.48, 0.50, 0.52] + [0.1] * 20
+    df = det._apply_adaptive_episode_gating(pd.DataFrame(_v45_fixture_output(states, confs)))
+    assert (df.iloc[5:8]["state"] == "STABLE").all()
+    assert np.allclose(df.iloc[5:8]["confidence"].to_numpy(), np.array([0.48, 0.50, 0.52]))
+
+
+def test_v45_keeps_longer_episode():
+    det = StabilizedDemandDetectorV45()
+    states = ["STABLE"] * 4 + ["DRIFT"] * 4 + ["STABLE"] * 20
+    confs = [0.1] * 4 + [0.40, 0.41, 0.42, 0.43] + [0.1] * 20
+    df = det._apply_adaptive_episode_gating(pd.DataFrame(_v45_fixture_output(states, confs)))
+    assert (df.iloc[4:8]["state"] == "DRIFT").all()
+
+
+def test_v45_keeps_episode_when_next_gap_is_below_threshold():
+    det = StabilizedDemandDetectorV45()
+    states = (
+        ["STABLE"] * 2
+        + ["DRIFT"] * 2
+        + ["STABLE"] * 10
+        + ["DRIFT"] * 2
+        + ["STABLE"] * 15
+    )
+    confs = [0.1] * 2 + [0.45, 0.46] + [0.1] * 10 + [0.44, 0.45] + [0.1] * 15
+    df = det._apply_adaptive_episode_gating(pd.DataFrame(_v45_fixture_output(states, confs)))
+    assert (df.iloc[2:4]["state"] == "DRIFT").all()
+
+
+def test_v45_preserves_v44_output_columns():
+    v44 = StabilizedDemandDetectorV44().detect_rolling_stabilized(STABLE)
+    v45 = StabilizedDemandDetectorV45().detect_rolling_stabilized(STABLE)
+    assert list(v45.columns) == list(v44.columns)
 
 
 # ---------------------------------------------------------------------------

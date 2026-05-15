@@ -75,7 +75,7 @@ print(result[["t", "state", "confidence", "action"]].tail(10))
 ```
 thunbit/            Python package
   detector.py       Baseline DemandStateDetector (no state machine)
-  stabilized.py     Stabilized variants: V4, V4.1, V4.2, V4.3, V4.4
+  stabilized.py     Stabilized variants: V4, V4.1, V4.2, V4.3, V4.4, V4.5
   _states.py        State constants
 
 examples/
@@ -120,6 +120,12 @@ for reducing false alerts on stable series.  V4.3 introduced the 25th-percentile
 (lower-quantile) baseline over a longer window plus warmup suppression.
 V4.4 (the V4.4b calibration) keeps that normalized-score design and applies a
 stricter state-machine calibration.
+
+**V4.5** is an operational refinement layer over true V4.4 episodes:
+it applies adaptive episode gating to suppress short, weak, isolated alerts
+(`suppress_max_len=3`, `suppress_max_mean_conf=0.52`,
+`suppress_min_prev_gap=14`, `suppress_min_next_gap=14`), with merge disabled
+by default.  V4.5 is not a new state model and not a confidence-remapping step.
 
 See [docs/methodology.md](docs/methodology.md) for full details.
 
@@ -184,6 +190,17 @@ plausibility audits across two real-world retail datasets:
   retail plausibility check.  Alerts clustered near store closure and reopening
   transitions.  V4.4 was again quieter than V4.3.
 
+V4.5 adaptive gating follow-up checks on these same panels showed a robust
+refinement profile over V4.4 episodes rather than a fundamentally new detector:
+
+* **Favorita** — meaningful share of series changed, alert burden slightly
+  reduced, and cluster fragmentation reduced.
+* **Rossmann** — smaller but still positive burden and fragmentation
+  improvements.
+
+Conclusion: V4.5 should be interpreted as a practical refinement layer over
+V4.4's core detector output.
+
 These are exploratory event-linked plausibility audits, **not** gold-labeled
 real-world validation.  Synthetic benchmarks remain the quantitative core and
 the primary controlled basis for comparing V4.3 and V4.4.  False-alert
@@ -200,6 +217,7 @@ and quantitative tables.
 |------|--------|
 | Core detector and state machine | ✅ implemented |
 | V4.4 as recommended experimental detector | ✅ V4.4b calibration on V4.3 normalized-score design |
+| V4.5 adaptive episode-gating refinement layer | ✅ implemented over true V4.4 output (merge disabled by default) |
 | Synthetic benchmark (old vs. V4 vs. V4.1) | ✅ complete |
 | V4.2 score-normalization benchmark | ✅ complete |
 | V4.3 + V4.4 synthetic benchmark (direct comparison) | ✅ complete — see `docs/benchmarking.md` |

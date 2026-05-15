@@ -3,7 +3,7 @@ thunbit.stabilized
 ~~~~~~~~~~~~~~~~~~
 Stabilized demand-state detector variants.
 
-This module provides five progressively refined detectors that add a state
+This module provides six progressively refined detectors that add a state
 machine on top of the raw confidence score produced by ``DemandStateDetector``:
 
 * ``StabilizedDemandDetector``   – V4: hysteresis + smoothing + confirmation
@@ -14,6 +14,8 @@ machine on top of the raw confidence score produced by ``DemandStateDetector``:
 * ``StabilizedDemandDetectorV44`` – V4.4 (V4.4b calibration): recommended
   experimental operating point; stricter state-machine calibration on V4.3's
   normalized-score design
+* ``StabilizedDemandDetectorV45`` – V4.5: V4.4 core output plus adaptive
+  episode gating that suppresses short, weak, isolated alert episodes
 
 All variants are **experimental**.  Stable-series false-alert rates remain an
 active calibration problem.  The key unresolved design issue is score
@@ -798,3 +800,173 @@ class StabilizedDemandDetectorV44(StabilizedDemandDetectorV43):
             cooldown_days=cooldown_days,
             warmup_days=warmup_days,
         )
+
+
+class StabilizedDemandDetectorV45(StabilizedDemandDetectorV44):
+    """V4.5 detector – V4.4 core plus adaptive episode-gating refinement.
+
+    V4.5 is an operational refinement layer over true V4.4 episodes, not a
+    new detector class, new state space, or confidence remapping approach.
+    The V4.4 state-machine output is computed first, then short/weak alert
+    episodes are suppressed when they are isolated from neighboring episodes.
+
+    Default adaptive gating (validated stronger cross-panel candidate):
+
+    * ``suppress_max_len`` = 3
+    * ``suppress_max_mean_conf`` = 0.52
+    * ``suppress_min_prev_gap`` = 14
+    * ``suppress_min_next_gap`` = 14
+    * merge disabled by default (``merge_enabled`` = False)
+    """
+
+    def __init__(
+        self,
+        window_long: int = 90,
+        window_short: int = 21,
+        drift_thresh: float = 0.28,
+        shift_thresh: float = 0.55,
+        smoothing_window: int = 2,
+        baseline_window: int = 28,
+        baseline_quantile: float = 0.25,
+        excess_scale: float = 2.0,
+        drift_entry: float = 0.42,
+        drift_exit: float = 0.22,
+        shift_entry: float = 0.68,
+        shift_exit: float = 0.44,
+        drift_confirm_days: int = 3,
+        shift_confirm_days: int = 1,
+        cooldown_days: int = 7,
+        warmup_days: int = 28,
+        suppress_max_len: int = 3,
+        suppress_max_mean_conf: float = 0.52,
+        suppress_min_prev_gap: int = 14,
+        suppress_min_next_gap: int = 14,
+        merge_enabled: bool = False,
+    ) -> None:
+        super().__init__(
+            window_long=window_long,
+            window_short=window_short,
+            drift_thresh=drift_thresh,
+            shift_thresh=shift_thresh,
+            smoothing_window=smoothing_window,
+            baseline_window=baseline_window,
+            baseline_quantile=baseline_quantile,
+            excess_scale=excess_scale,
+            drift_entry=drift_entry,
+            drift_exit=drift_exit,
+            shift_entry=shift_entry,
+            shift_exit=shift_exit,
+            drift_confirm_days=drift_confirm_days,
+            shift_confirm_days=shift_confirm_days,
+            cooldown_days=cooldown_days,
+            warmup_days=warmup_days,
+        )
+        self.suppress_max_len = suppress_max_len
+        self.suppress_max_mean_conf = suppress_max_mean_conf
+        self.suppress_min_prev_gap = suppress_min_prev_gap
+        self.suppress_min_next_gap = suppress_min_next_gap
+        self.merge_enabled = merge_enabled
+
+    @staticmethod
+    def _extract_alert_episodes(df: pd.DataFrame) -> list[tuple[int, int]]:
+        """Return contiguous non-STABLE episode index ranges (start_idx, end_idx)."""
+        episodes: list[tuple[int, int]] = []
+        start_idx: int | None = None
+
+        for idx, state in enumerate(df["state"].to_numpy()):
+            if state != "STABLE" and start_idx is None:
+                start_idx = idx
+            elif state == "STABLE" and start_idx is not None:
+                episodes.append((start_idx, idx - 1))
+                start_idx = None
+
+        if start_idx is not None:
+            episodes.append((start_idx, len(df) - 1))
+
+        return episodes
+
+    @staticmethod
+    def _episode_gap_days(
+        t_values: np.ndarray,
+        episodes: list[tuple[int, int]],
+        episode_idx: int,
+    ) -> tuple[int | None, int | None]:
+        """Return gaps (days) to previous/next alert episodes."""
+        start_idx, end_idx = episodes[episode_idx]
+        prev_gap: int | None = None
+        next_gap: int | None = None
+
+        if episode_idx > 0:
+            prev_end_idx = episodes[episode_idx - 1][1]
+            prev_gap = int(max(0, t_values[start_idx] - t_values[prev_end_idx] - 1))
+
+        if episode_idx < len(episodes) - 1:
+            next_start_idx = episodes[episode_idx + 1][0]
+            next_gap = int(max(0, t_values[next_start_idx] - t_values[end_idx] - 1))
+
+        return prev_gap, next_gap
+
+    def _should_suppress_episode(
+        self,
+        episode_len: int,
+        episode_mean_conf: float,
+        prev_gap: int | None,
+        next_gap: int | None,
+    ) -> bool:
+        """Check whether an alert episode should be suppressed by V4.5 gating."""
+        if episode_len > self.suppress_max_len:
+            return False
+        if episode_mean_conf > self.suppress_max_mean_conf:
+            return False
+
+        prev_ok = prev_gap is None or prev_gap >= self.suppress_min_prev_gap
+        next_ok = next_gap is None or next_gap >= self.suppress_min_next_gap
+        return prev_ok and next_ok
+
+    def _apply_adaptive_episode_gating(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Apply adaptive episode gating to true V4.4 output rows."""
+        if df.empty:
+            return df
+
+        gated = df.copy()
+        episodes = self._extract_alert_episodes(gated)
+        if not episodes:
+            return gated
+
+        t_values = gated["t"].to_numpy()
+        conf_values = gated["confidence"].to_numpy(dtype=float)
+        state_values = gated["state"].to_numpy().copy()
+
+        for episode_idx, (start_idx, end_idx) in enumerate(episodes):
+            episode_len = end_idx - start_idx + 1
+            episode_mean_conf = float(np.mean(conf_values[start_idx : end_idx + 1]))
+            prev_gap, next_gap = self._episode_gap_days(t_values, episodes, episode_idx)
+
+            if self._should_suppress_episode(
+                episode_len=episode_len,
+                episode_mean_conf=episode_mean_conf,
+                prev_gap=prev_gap,
+                next_gap=next_gap,
+            ):
+                state_values[start_idx : end_idx + 1] = "STABLE"
+
+        gated["state"] = state_values
+        gated["action"] = gated["state"].map(STATE_ACTIONS)
+        gated["horizon"] = [
+            self._horizon(state, pss)
+            for state, pss in zip(gated["state"].to_numpy(), gated["pss"].to_numpy())
+        ]
+        if "prev_state" in gated.columns:
+            gated["prev_state"] = gated["state"].shift(1, fill_value="STABLE")
+
+        return gated
+
+    def detect_rolling_stabilized(
+        self,
+        series,
+        dates=None,
+        step: int = 1,
+    ) -> pd.DataFrame:
+        """V4.5 detection: true V4.4 output followed by adaptive episode gating."""
+        v44_output = super().detect_rolling_stabilized(series=series, dates=dates, step=step)
+        return self._apply_adaptive_episode_gating(v44_output)
