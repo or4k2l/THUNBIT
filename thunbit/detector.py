@@ -14,6 +14,8 @@ Research prototype – not validated for production use.
 
 from __future__ import annotations
 
+from numbers import Integral, Real
+
 import numpy as np
 import pandas as pd
 from scipy.stats import ks_2samp
@@ -64,10 +66,67 @@ class DemandStateDetector:
         drift_thresh: float = 0.28,
         shift_thresh: float = 0.55,
     ) -> None:
+        self._validate_positive_integer("window_long", window_long)
+        self._validate_positive_integer("window_short", window_short)
+        self._validate_unit_interval("drift_thresh", drift_thresh)
+        self._validate_unit_interval("shift_thresh", shift_thresh)
+        if drift_thresh > shift_thresh:
+            raise ValueError("drift_thresh must be less than or equal to shift_thresh.")
+
         self.window_long = window_long
         self.window_short = window_short
         self.drift_thresh = drift_thresh
         self.shift_thresh = shift_thresh
+
+    @staticmethod
+    def _validate_positive_integer(name: str, value: int) -> None:
+        if isinstance(value, bool) or not isinstance(value, Integral) or value < 1:
+            raise ValueError(f"{name} must be a positive integer.")
+
+    @staticmethod
+    def _validate_nonnegative_integer(name: str, value: int) -> None:
+        if isinstance(value, bool) or not isinstance(value, Integral) or value < 0:
+            raise ValueError(f"{name} must be a non-negative integer.")
+
+    @staticmethod
+    def _validate_unit_interval(name: str, value: float) -> None:
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, Real)
+            or not np.isfinite(value)
+            or not 0.0 <= value <= 1.0
+        ):
+            raise ValueError(f"{name} must be a finite number in [0, 1].")
+
+    @staticmethod
+    def _validate_positive_number(name: str, value: float) -> None:
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, Real)
+            or not np.isfinite(value)
+            or value <= 0
+        ):
+            raise ValueError(f"{name} must be a finite number greater than zero.")
+
+    def _validate_series(self, series) -> np.ndarray:
+        s = np.asarray(series, dtype=float)
+        if s.ndim != 1:
+            raise ValueError("series must be a one-dimensional array-like.")
+        if not np.isfinite(s).all():
+            raise ValueError("series must contain only finite numeric values.")
+        return s
+
+    def _validate_rolling_inputs(self, series, dates, step: int) -> tuple[np.ndarray, np.ndarray]:
+        s = self._validate_series(series)
+        self._validate_positive_integer("step", step)
+
+        if dates is None:
+            return s, np.arange(len(s))
+
+        date_values = np.asarray(dates)
+        if date_values.ndim != 1 or len(date_values) != len(s):
+            raise ValueError("dates must be one-dimensional and match the length of series.")
+        return s, date_values
 
     # ------------------------------------------------------------------
     # Evidence primitives
@@ -153,7 +212,7 @@ class DemandStateDetector:
         -------
         dict with keys ``raw_confidence``, ``pss``, ``evidence``.
         """
-        s = np.asarray(series, dtype=float)
+        s = self._validate_series(series)
 
         if len(s) < self.window_long + self.window_short:
             return {"raw_confidence": 0.0, "pss": 50.0, "evidence": {}}
@@ -207,9 +266,7 @@ class DemandStateDetector:
             ``state``, ``raw_confidence``, ``confidence``, ``pss``,
             ``horizon``, ``action``, ``evidence``.
         """
-        s = np.asarray(series, dtype=float)
-        if dates is None:
-            dates = np.arange(len(s))
+        s, dates = self._validate_rolling_inputs(series, dates, step)
 
         start = self.window_long + self.window_short
         rows = []

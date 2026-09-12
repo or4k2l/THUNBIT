@@ -375,6 +375,62 @@ def test_short_series_returns_empty():
     assert len(result) == 0
 
 
+@pytest.mark.parametrize(
+    "series",
+    [
+        [[1.0, 2.0], [3.0, 4.0]],
+        [1.0, np.nan, 3.0],
+        [1.0, np.inf, 3.0],
+    ],
+)
+def test_rejects_invalid_series(series):
+    with pytest.raises(ValueError, match="series"):
+        DemandStateDetector().detect_raw(series)
+
+
+@pytest.mark.parametrize("step", [0, -1, 1.5, True])
+def test_rejects_invalid_step(step):
+    with pytest.raises(ValueError, match="step"):
+        DemandStateDetector().detect_rolling(STABLE, step=step)
+
+
+def test_rejects_dates_with_wrong_length():
+    with pytest.raises(ValueError, match="dates"):
+        DemandStateDetector().detect_rolling(STABLE, dates=np.arange(len(STABLE) - 1))
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"window_long": 0}, "window_long"),
+        ({"drift_thresh": 0.8, "shift_thresh": 0.5}, "drift_thresh"),
+        ({"smoothing_window": 0}, "smoothing_window"),
+        ({"drift_exit": 0.5, "drift_entry": 0.4}, "drift_exit"),
+    ],
+)
+def test_rejects_invalid_detector_configuration(kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        StabilizedDemandDetector(**kwargs)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"baseline_window": 0}, "baseline_window"),
+        ({"baseline_quantile": 1.1}, "baseline_quantile"),
+        ({"excess_scale": 0.0}, "excess_scale"),
+    ],
+)
+def test_rejects_invalid_normalization_configuration(kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        StabilizedDemandDetectorV43(**kwargs)
+
+
+def test_rejects_unknown_baseline_statistic():
+    with pytest.raises(ValueError, match="baseline_stat"):
+        StabilizedDemandDetectorV42(baseline_stat="mode")
+
+
 # ---------------------------------------------------------------------------
 # Minimal hysteresis check for V4.3
 # ---------------------------------------------------------------------------
