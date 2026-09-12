@@ -70,7 +70,7 @@ The test suite covers:
 - baseline/normalized confidence ranges for V4.2, V4.3, and V4.4
 - warmup suppression for V4.3 and V4.4
 
-All tests use synthetic data generated with `numpy.random.default_rng(42)`.
+All tests use synthetic data generated with `numpy.random.default_rng(0)`.
 No external data or network access is required.
 
 ---

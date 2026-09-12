@@ -92,6 +92,20 @@ class StabilizedDemandDetector(DemandStateDetector):
             drift_thresh=drift_thresh,
             shift_thresh=shift_thresh,
         )
+        self._validate_positive_integer("smoothing_window", smoothing_window)
+        self._validate_unit_interval("drift_entry", drift_entry)
+        self._validate_unit_interval("drift_exit", drift_exit)
+        self._validate_unit_interval("shift_entry", shift_entry)
+        self._validate_unit_interval("shift_exit", shift_exit)
+        self._validate_positive_integer("drift_confirm_days", drift_confirm_days)
+        self._validate_positive_integer("shift_confirm_days", shift_confirm_days)
+        if drift_exit > drift_entry:
+            raise ValueError("drift_exit must be less than or equal to drift_entry.")
+        if shift_exit > shift_entry:
+            raise ValueError("shift_exit must be less than or equal to shift_entry.")
+        if drift_entry > shift_entry:
+            raise ValueError("drift_entry must be less than or equal to shift_entry.")
+
         self.smoothing_window = smoothing_window
         self.drift_entry = drift_entry
         self.drift_exit = drift_exit
@@ -99,6 +113,34 @@ class StabilizedDemandDetector(DemandStateDetector):
         self.shift_exit = shift_exit
         self.drift_confirm_days = drift_confirm_days
         self.shift_confirm_days = shift_confirm_days
+
+    def _advance_state(
+        self,
+        current_state: str,
+        smooth_conf: float,
+        drift_run: int,
+        shift_run: int,
+        cooldown: int = 0,
+        cooldown_days: int = 0,
+    ) -> tuple[str, int]:
+        """Apply one state-machine transition and return state and cooldown."""
+        if current_state == "STABLE":
+            if shift_run >= self.shift_confirm_days:
+                return "SHIFT", 0
+            if cooldown > 0:
+                return "STABLE", cooldown - 1
+            if drift_run >= self.drift_confirm_days:
+                return "DRIFT", 0
+        elif current_state == "DRIFT":
+            if shift_run >= self.shift_confirm_days:
+                return "SHIFT", 0
+            if smooth_conf < self.drift_exit:
+                return "STABLE", cooldown_days
+        elif current_state == "SHIFT" and smooth_conf < self.shift_exit:
+            if smooth_conf >= self.drift_entry:
+                return "DRIFT", 0
+            return "STABLE", cooldown_days
+        return current_state, cooldown
 
     def detect_rolling_stabilized(
         self,
@@ -125,9 +167,7 @@ class StabilizedDemandDetector(DemandStateDetector):
             ``horizon``, ``action``, ``evidence``, ``drift_run``,
             ``shift_run``.
         """
-        s = np.asarray(series, dtype=float)
-        if dates is None:
-            dates = np.arange(len(s))
+        s, dates = self._validate_rolling_inputs(series, dates, step)
 
         start = self.window_long + self.window_short
         rows = []
@@ -154,25 +194,9 @@ class StabilizedDemandDetector(DemandStateDetector):
             else:
                 drift_run = 0
 
-            # State machine transitions.
-            if current_state == "STABLE":
-                if shift_run >= self.shift_confirm_days:
-                    current_state = "SHIFT"
-                elif drift_run >= self.drift_confirm_days:
-                    current_state = "DRIFT"
-
-            elif current_state == "DRIFT":
-                if shift_run >= self.shift_confirm_days:
-                    current_state = "SHIFT"
-                elif smooth_conf < self.drift_exit:
-                    current_state = "STABLE"
-
-            elif current_state == "SHIFT":
-                if smooth_conf < self.shift_exit:
-                    if smooth_conf >= self.drift_entry:
-                        current_state = "DRIFT"
-                    else:
-                        current_state = "STABLE"
+            current_state, _ = self._advance_state(
+                current_state, smooth_conf, drift_run, shift_run
+            )
 
             rows.append(
                 {
@@ -246,6 +270,7 @@ class StabilizedDemandDetectorV41(StabilizedDemandDetector):
             drift_confirm_days=drift_confirm_days,
             shift_confirm_days=shift_confirm_days,
         )
+        self._validate_nonnegative_integer("cooldown_days", cooldown_days)
         self.cooldown_days = cooldown_days
 
     def detect_rolling_stabilized(
@@ -263,9 +288,7 @@ class StabilizedDemandDetectorV41(StabilizedDemandDetector):
             with the addition of a ``cooldown`` column showing the remaining
             suppression days at each timestep.
         """
-        s = np.asarray(series, dtype=float)
-        if dates is None:
-            dates = np.arange(len(s))
+        s, dates = self._validate_rolling_inputs(series, dates, step)
 
         start = self.window_long + self.window_short
         rows = []
@@ -293,31 +316,14 @@ class StabilizedDemandDetectorV41(StabilizedDemandDetector):
             else:
                 drift_run = 0
 
-            # State machine with cooldown.
-            if current_state == "STABLE":
-                if shift_run >= self.shift_confirm_days:
-                    current_state = "SHIFT"
-                    cooldown = 0
-                elif cooldown > 0:
-                    cooldown -= 1
-                elif drift_run >= self.drift_confirm_days:
-                    current_state = "DRIFT"
-
-            elif current_state == "DRIFT":
-                if shift_run >= self.shift_confirm_days:
-                    current_state = "SHIFT"
-                    cooldown = 0
-                elif smooth_conf < self.drift_exit:
-                    current_state = "STABLE"
-                    cooldown = self.cooldown_days
-
-            elif current_state == "SHIFT":
-                if smooth_conf < self.shift_exit:
-                    if smooth_conf >= self.drift_entry:
-                        current_state = "DRIFT"
-                    else:
-                        current_state = "STABLE"
-                        cooldown = self.cooldown_days
+            current_state, cooldown = self._advance_state(
+                current_state,
+                smooth_conf,
+                drift_run,
+                shift_run,
+                cooldown,
+                self.cooldown_days,
+            )
 
             rows.append(
                 {
@@ -415,6 +421,11 @@ class StabilizedDemandDetectorV42(StabilizedDemandDetectorV41):
             shift_confirm_days=shift_confirm_days,
             cooldown_days=cooldown_days,
         )
+        self._validate_positive_integer("baseline_window", baseline_window)
+        if baseline_stat not in {"mean", "median"}:
+            raise ValueError("baseline_stat must be either 'mean' or 'median'.")
+        self._validate_positive_number("excess_scale", excess_scale)
+
         self.baseline_window = baseline_window
         self.baseline_stat = baseline_stat
         self.excess_scale = excess_scale
@@ -442,9 +453,7 @@ class StabilizedDemandDetectorV42(StabilizedDemandDetectorV41):
             Columns: all V4.1 columns plus ``baseline_confidence``,
             ``normalized_confidence``, and ``prev_state``.
         """
-        s = np.asarray(series, dtype=float)
-        if dates is None:
-            dates = np.arange(len(s))
+        s, dates = self._validate_rolling_inputs(series, dates, step)
 
         start = self.window_long + self.window_short
         rows = []
@@ -481,31 +490,14 @@ class StabilizedDemandDetectorV42(StabilizedDemandDetectorV41):
 
             prev_state = current_state
 
-            # State machine with cooldown.
-            if current_state == "STABLE":
-                if shift_run >= self.shift_confirm_days:
-                    current_state = "SHIFT"
-                    cooldown = 0
-                elif cooldown > 0:
-                    cooldown -= 1
-                elif drift_run >= self.drift_confirm_days:
-                    current_state = "DRIFT"
-
-            elif current_state == "DRIFT":
-                if shift_run >= self.shift_confirm_days:
-                    current_state = "SHIFT"
-                    cooldown = 0
-                elif smooth_conf < self.drift_exit:
-                    current_state = "STABLE"
-                    cooldown = self.cooldown_days
-
-            elif current_state == "SHIFT":
-                if smooth_conf < self.shift_exit:
-                    if smooth_conf >= self.drift_entry:
-                        current_state = "DRIFT"
-                    else:
-                        current_state = "STABLE"
-                        cooldown = self.cooldown_days
+            current_state, cooldown = self._advance_state(
+                current_state,
+                smooth_conf,
+                drift_run,
+                shift_run,
+                cooldown,
+                self.cooldown_days,
+            )
 
             rows.append(
                 {
@@ -618,6 +610,8 @@ class StabilizedDemandDetectorV43(StabilizedDemandDetectorV42):
             shift_confirm_days=shift_confirm_days,
             cooldown_days=cooldown_days,
         )
+        self._validate_unit_interval("baseline_quantile", baseline_quantile)
+        self._validate_nonnegative_integer("warmup_days", warmup_days)
         self.baseline_quantile = baseline_quantile
         self.warmup_days = warmup_days
 
@@ -641,9 +635,7 @@ class StabilizedDemandDetectorV43(StabilizedDemandDetectorV42):
         pd.DataFrame
             Same schema as ``StabilizedDemandDetectorV42.detect_rolling_stabilized``.
         """
-        s = np.asarray(series, dtype=float)
-        if dates is None:
-            dates = np.arange(len(s))
+        s, dates = self._validate_rolling_inputs(series, dates, step)
 
         start = self.window_long + self.window_short
         rows = []
@@ -683,31 +675,14 @@ class StabilizedDemandDetectorV43(StabilizedDemandDetectorV42):
             in_warmup = output_row < self.warmup_days
 
             if not in_warmup:
-                # State machine with cooldown (same logic as V4.2).
-                if current_state == "STABLE":
-                    if shift_run >= self.shift_confirm_days:
-                        current_state = "SHIFT"
-                        cooldown = 0
-                    elif cooldown > 0:
-                        cooldown -= 1
-                    elif drift_run >= self.drift_confirm_days:
-                        current_state = "DRIFT"
-
-                elif current_state == "DRIFT":
-                    if shift_run >= self.shift_confirm_days:
-                        current_state = "SHIFT"
-                        cooldown = 0
-                    elif smooth_conf < self.drift_exit:
-                        current_state = "STABLE"
-                        cooldown = self.cooldown_days
-
-                elif current_state == "SHIFT":
-                    if smooth_conf < self.shift_exit:
-                        if smooth_conf >= self.drift_entry:
-                            current_state = "DRIFT"
-                        else:
-                            current_state = "STABLE"
-                            cooldown = self.cooldown_days
+                current_state, cooldown = self._advance_state(
+                    current_state,
+                    smooth_conf,
+                    drift_run,
+                    shift_run,
+                    cooldown,
+                    self.cooldown_days,
+                )
             else:
                 # During warmup: allow exits from alert states but not new entries.
                 if current_state == "DRIFT" and smooth_conf < self.drift_exit:
@@ -861,6 +836,18 @@ class StabilizedDemandDetectorV45(StabilizedDemandDetectorV44):
             cooldown_days=cooldown_days,
             warmup_days=warmup_days,
         )
+        self._validate_nonnegative_integer("suppress_max_len", suppress_max_len)
+        self._validate_unit_interval(
+            "suppress_max_mean_conf", suppress_max_mean_conf
+        )
+        self._validate_nonnegative_integer(
+            "suppress_min_prev_gap", suppress_min_prev_gap
+        )
+        self._validate_nonnegative_integer(
+            "suppress_min_next_gap", suppress_min_next_gap
+        )
+        if not isinstance(merge_enabled, bool):
+            raise ValueError("merge_enabled must be a boolean.")
         self.suppress_max_len = suppress_max_len
         self.suppress_max_mean_conf = suppress_max_mean_conf
         self.suppress_min_prev_gap = suppress_min_prev_gap

@@ -197,6 +197,14 @@ responsive historical comparison point.
 | `cooldown_days`       | 7              | Suppression days after returning to STABLE           |
 | `warmup_days`         | 28             | Initial rows with alert-entry suppressed (V4.3+)     |
 
+Window, confirmation, and `step` values must be positive integers; cooldown,
+warmup, and episode-gating lengths may be zero to disable their mechanism.
+Thresholds and quantiles must be finite values in the interval `[0, 1]`;
+`excess_scale` must be a positive finite value. Input demand and
+optional date arrays must be one-dimensional, and date arrays must have the
+same length as the demand series. Missing or infinite demand values are
+rejected explicitly rather than being silently imputed.
+
 ---
 
 ## 9. What THUNBIT does not do

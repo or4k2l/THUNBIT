@@ -50,7 +50,7 @@ state_counts = result_stable_base["state"].value_counts()
 print(state_counts.to_string())
 print(
     f"\nMean confidence: {result_stable_base['confidence'].mean():.4f}"
-    f"  (higher → more instability evidence)"
+    f"  (higher -> more instability evidence)"
 )
 
 
